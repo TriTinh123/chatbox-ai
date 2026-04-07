@@ -3,11 +3,11 @@
 #  Biến số liệu từ analysis.py thành ngôn ngữ business dễ hiểu.
 #  Chứa: _bar(), _section(), _expand_btn() và các hàm build_*
 # ════════════════════════════════════════════════════════════════════════════
+import random
 
 
-def build_greeting() -> str:
-    """Simple greeting response."""
-    return (
+_GREETINGS = [
+    (
         '<div style="line-height:1.8; font-size:14px;">'
         'Chào bạn! 👋 Tôi là <strong>Revenue AI</strong>, chuyên gia phân tích doanh thu. '
         'Tôi có thể giúp bạn:<br><br>'
@@ -16,7 +16,53 @@ def build_greeting() -> str:
         '<strong>🛠️ Khuyến nghị:</strong> Nên làm gì để khắc phục?<br><br>'
         'Hãy <strong>upload file CSV</strong> để bắt đầu phân tích, hoặc hỏi tôi bất cứ điều gì! 💡'
         '</div>'
-    )
+    ),
+    (
+        '<div style="line-height:1.8; font-size:14px;">'
+        'Xin chào! 🌟 Rất vui được gặp bạn. Tôi là <strong>Revenue AI</strong> — trợ lý thông minh về doanh thu.<br><br>'
+        'Bạn muốn khám phá điều gì hôm nay?<br>'
+        '<strong>🔍 Tìm nguyên nhân</strong> doanh thu sụt giảm?<br>'
+        '<strong>📦 Xem sản phẩm nào</strong> đang kéo lùi hiệu quả?<br>'
+        '<strong>📅 Dự báo xu hướng</strong> tháng tới?<br><br>'
+        'Upload file CSV của bạn lên và để tôi phân tích ngay! 🚀'
+        '</div>'
+    ),
+    (
+        '<div style="line-height:1.8; font-size:14px;">'
+        'Hey! 😊 Tôi là <strong>Revenue AI</strong>, sẵn sàng giúp bạn hiểu rõ hơn về doanh thu kinh doanh.<br><br>'
+        'Một vài thứ tôi làm được:<br>'
+        '&bull; Phân tích sản phẩm/kênh bán hàng hiệu quả nhất<br>'
+        '&bull; Chỉ ra nguyên nhân doanh thu giảm<br>'
+        '&bull; Đề xuất chiến lược cải thiện<br><br>'
+        'Bắt đầu bằng cách <strong>upload file CSV</strong> hoặc đặt câu hỏi nhé! 💬'
+        '</div>'
+    ),
+    (
+        '<div style="line-height:1.8; font-size:14px;">'
+        'Chào mừng bạn! 🎯 Tôi là <strong>Revenue AI</strong> — biến dữ liệu doanh thu thành insight hành động được.<br><br>'
+        'Hỏi tôi bất cứ điều gì như:<br>'
+        '💬 <em>"Tháng nào doanh thu cao nhất?"</em><br>'
+        '💬 <em>"Sản phẩm nào nên tập trung đẩy mạnh?"</em><br>'
+        '💬 <em>"Kênh bán hàng nào đang kém hiệu quả?"</em><br><br>'
+        'Hoặc <strong>upload file CSV</strong> để tôi phân tích toàn diện! 📂'
+        '</div>'
+    ),
+    (
+        '<div style="line-height:1.8; font-size:14px;">'
+        'Xin chào! 💼 Tôi là <strong>Revenue AI</strong>, đồng hành cùng bạn trong việc ra quyết định dựa trên dữ liệu.<br><br>'
+        'Tôi có thể phân tích:<br>'
+        '<strong>📊 Doanh thu</strong> theo thời gian, sản phẩm, kênh bán<br>'
+        '<strong>⚠️ Rủi ro</strong> và điểm yếu trong kinh doanh<br>'
+        '<strong>✅ Cơ hội</strong> tăng trưởng tiềm năng<br><br>'
+        'Upload file CSV và bắt đầu khám phá ngay! 🔎'
+        '</div>'
+    ),
+]
+
+
+def build_greeting() -> str:
+    """Random greeting response each time."""
+    return random.choice(_GREETINGS)
 
 
 def _expand_btn(title: str, chart_html: str) -> str:
