@@ -582,8 +582,10 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch (e) { localStorage.removeItem('revenueAI_lastFiles'); }
 
   // enable/disable send buttons
-  chatInput().addEventListener('input',  () => { syncSendBtn(chatInput(), sendBtn()); });
-  chatInput2().addEventListener('input', () => { syncSendBtn(chatInput2(), sendBtn2()); });
+  chatInput().addEventListener('input',  () => { syncSendBtn(chatInput(), sendBtn()); autoResizeTextarea(chatInput()); });
+  chatInput2().addEventListener('input', () => { syncSendBtn(chatInput2(), sendBtn2()); autoResizeTextarea(chatInput2()); });
+
+
 
   // close tool menus on outside click
   document.addEventListener('click', (e) => {
@@ -604,6 +606,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function syncSendBtn(input, btn) {
   btn.disabled = input.value.trim() === '';
+}
+
+function autoResizeTextarea(ta) {
+  ta.style.height = 'auto';
+  ta.style.height = Math.min(ta.scrollHeight, 160) + 'px';
 }
 
 function setTodayDate() {
@@ -699,6 +706,7 @@ function sendMessage() {
   switchToChatMode();
   doSend(val);
   chatInput().value = '';
+  autoResizeTextarea(chatInput());
   syncSendBtn(chatInput(), sendBtn());
 }
 
@@ -708,6 +716,7 @@ function sendMessage2() {
   if (!val || isWaiting) return;
   doSend(val);
   chatInput2().value = '';
+  autoResizeTextarea(chatInput2());
   syncSendBtn(chatInput2(), sendBtn2());
 }
 
@@ -759,7 +768,6 @@ function _fetchChat(text, attempt) {
     body: JSON.stringify({ text: text, session_key: currentChatId || 'default' })
   })
   .then(r => {
-    console.log('Response status:', r.status);
     if (r.status === 401) {
       // Unauthorized - redirect to login
       localStorage.removeItem('accessToken');
@@ -777,7 +785,6 @@ function _fetchChat(text, attempt) {
     return r.json();
   })
   .then(data => {
-    console.log('Response data:', data);
     hideTyping();
     isWaiting = false;
     
@@ -830,6 +837,9 @@ function startRateLimitCountdown(seconds, originalText) {
   }, 1000);
 }
 
+// ── Last user text (for regenerate) ───────
+let _lastUserText = '';
+
 // ── Add message bubble ─────────────────────
 // fileChipHtml is optional; only used for user rows
 function addMessage(role, html, fileChipHtml = '') {
@@ -855,7 +865,26 @@ function addMessage(role, html, fileChipHtml = '') {
   } else {
     bubble.innerHTML = displayHtml;
   }
-  row.appendChild(bubble);
+
+  // Bot action bar: copy + regenerate
+  if (role === 'bot') {
+    const actions = document.createElement('div');
+    actions.className = 'msg-actions';
+    actions.innerHTML = `
+      <button class="msg-action-btn" title="Sao chép" onclick="copyMessage(this)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        Sao chép
+      </button>
+      <button class="msg-action-btn" title="Tạo lại" onclick="regenerateResponse(this)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+        Tạo lại
+      </button>`;
+    row.appendChild(bubble);
+    row.appendChild(actions);
+  } else {
+    row.appendChild(bubble);
+    if (html && !fileChipHtml) _lastUserText = html;
+  }
 
   msgs.appendChild(row);
   msgs.scrollTop = msgs.scrollHeight;
@@ -869,9 +898,39 @@ function addMessage(role, html, fileChipHtml = '') {
   }
 }
 
+// ── Copy message text ──────────────────────
+function copyMessage(btn) {
+  const bubble = btn.closest('.msg-wrap')?.querySelector('.msg-bubble');
+  if (!bubble) return;
+  const text = bubble.innerText || bubble.textContent || '';
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Đã sao chép';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('copied'); }, 1800);
+  });
+}
+
+// ── Regenerate last response ───────────────
+function regenerateResponse(btn) {
+  if (isWaiting || !_lastUserText) return;
+  // Remove last bot message row
+  const row = btn.closest('.msg-wrap');
+  const actRow = btn.closest('.msg-actions');
+  if (row) row.remove();
+  if (actRow) actRow.remove();
+  // Remove last bot entry from currentMessages
+  for (let i = currentMessages.length - 1; i >= 0; i--) {
+    if (currentMessages[i].role === 'bot') { currentMessages.splice(i, 1); break; }
+  }
+  _fetchChat(_lastUserText);
+}
+
+// ── Edit user message ──────────────────────
 // ── Typing indicator ───────────────────────
 function showTyping() { typingEl().classList.add('active'); chatMessages().scrollTop = chatMessages().scrollHeight; }
 function hideTyping() { typingEl().classList.remove('active'); }
+
 
 // ── Tool menus ─────────────────────────────
 function toggleToolMenu() {

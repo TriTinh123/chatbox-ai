@@ -759,7 +759,7 @@ html, body {
   overflow-y: auto;
   align-items: center;
 }
-.chat-screen { display: none; flex-direction: column; }
+.chat-screen { display: none; flex-direction: column; position: relative; }
 .chat-screen.active { display: flex; }
 
 .welcome-content {
@@ -950,7 +950,7 @@ html, body {
 .file-banner-close:hover { background: var(--rose-dim); color: var(--rose); }
 
 .chat-input-row {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: flex-end; gap: 8px;
   padding: 10px 12px 8px;
 }
 
@@ -1801,3 +1801,41 @@ body.dark-mode .chip:hover {
   border-color: var(--violet);
   box-shadow: 0 0 0 4px rgba(124,58,237,.12), var(--shadow-lg);
 }
+
+/* ─── TEXTAREA auto-resize ───────────────── */
+.chat-input-field {
+  min-height: 22px;
+  max-height: 160px;
+  overflow-y: auto;
+  resize: none;
+}
+
+/* ─── MSG ACTION BAR (copy / regenerate) ─── */
+.msg-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: 44px;
+  padding: 2px 0 6px;
+  opacity: 0;
+  transition: opacity .18s;
+}
+.msg-wrap:hover .msg-actions,
+.msg-wrap:focus-within .msg-actions { opacity: 1; }
+
+.msg-action-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 9px;
+  font-size: 11.5px;
+  font-family: var(--font);
+  font-weight: 500;
+  color: var(--text-muted);
+  background: rgba(255,255,255,.85);
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.msg-action-btn:hover { background: var(--violet-dim); color: var(--violet); border-color: var(--violet); }
+.msg-action-btn.copied { color: #4ade80; border-color: #4ade80; }
+
+
