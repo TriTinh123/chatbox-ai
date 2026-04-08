@@ -5,7 +5,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth.models import User
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.db import models, transaction
@@ -547,11 +547,55 @@ def chart_data_view(request):
                 'forecast': [max(0, int(v)) for v in forecast_y],
             })
 
+        elif chart_type == 'compare':
+            p1 = request.GET.get('p1', '')
+            p2 = request.GET.get('p2', '')
+            if not p1 or not p2:
+                return JsonResponse({'error': 'Thiếu tham số p1, p2 (YYYY-MM)'}, status=400)
+            import pandas as _pd
+            df2 = df.copy()
+            df2['period'] = df2['date'].dt.to_period('M').astype(str)
+            d1 = df2[df2['period'] == p1]
+            d2 = df2[df2['period'] == p2]
+            if d1.empty and d2.empty:
+                return JsonResponse({'error': f'Không tìm thấy dữ liệu cho {p1} hoặc {p2}'}, status=404)
+            return JsonResponse({
+                'type': 'compare',
+                'p1_label': p1, 'p2_label': p2,
+                'p1_revenue': int(d1['revenue'].sum()), 'p2_revenue': int(d2['revenue'].sum()),
+                'p1_quantity': int(d1['quantity'].sum()), 'p2_quantity': int(d2['quantity'].sum()),
+            })
+
         else:
             return JsonResponse({'error': 'Unknown chart type'}, status=400)
 
     except Exception as e:
         logger.error("chart_data_view error:\n%s", traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(['GET'])
+def export_excel_view(request):
+    """Export all SalesData as an Excel file."""
+    import io
+    try:
+        if not SalesData.objects.exists():
+            return JsonResponse({'error': 'Chưa có dữ liệu. Vui lòng tải file trước.'}, status=404)
+        qs = SalesData.objects.all().values('date', 'product', 'channel', 'region', 'quantity', 'unit_price', 'revenue')
+        df = pd.DataFrame(list(qs))
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Sales Data')
+        buf.seek(0)
+        response = HttpResponse(
+            buf.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="revenue_report.xlsx"'
+        return response
+    except Exception as e:
+        logger.error("export_excel_view error:\n%s", traceback.format_exc())
         return JsonResponse({'error': str(e)}, status=500)
 
 

@@ -5,6 +5,7 @@
 
 import os
 import re
+import time
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
@@ -27,20 +28,24 @@ def _strip_html(text: str) -> str:
 
 
 def _call_gemini(prompt: str) -> str:
-    """Gọi Gemini. Raise GeminiRateLimitError khi gặp 429 để caller xử lý."""
+    """Gọi Gemini. Retry tự động khi 503, raise GeminiRateLimitError khi 429."""
     if not client:
         raise ValueError("GEMINI_API_KEY chưa được cấu hình")
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt
-        )
-        return response.text
-    except Exception as e:
-        err = str(e)
-        if "429" in err or "RESOURCE_EXHAUSTED" in err:
-            raise GeminiRateLimitError(err)
-        raise
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt
+            )
+            return response.text
+        except Exception as e:
+            err = str(e)
+            if "429" in err or "RESOURCE_EXHAUSTED" in err:
+                raise GeminiRateLimitError(err)
+            if ("503" in err or "UNAVAILABLE" in err) and attempt < 2:
+                time.sleep(2 ** attempt)  # 1s, 2s
+                continue
+            raise
 
 
 def ask_gemini(user_message: str, data_context: dict, conversation_history: list = None) -> str:
@@ -126,21 +131,25 @@ FORMAT OUTPUT:
         parts=[types.Part(text=user_message)]
     ))
 
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=contents,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                temperature=0.7,
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                    temperature=0.7,
+                )
             )
-        )
-        return response.text
-    except Exception as e:
-        err = str(e)
-        if "429" in err or "RESOURCE_EXHAUSTED" in err:
-            raise GeminiRateLimitError(err)
-        raise
+            return response.text
+        except Exception as e:
+            err = str(e)
+            if "429" in err or "RESOURCE_EXHAUSTED" in err:
+                raise GeminiRateLimitError(err)
+            if ("503" in err or "UNAVAILABLE" in err) and attempt < 2:
+                time.sleep(2 ** attempt)  # 1s, 2s
+                continue
+            raise
 
 
 def ask_gemini_file_mode(user_message: str, file_content: str, filename: str) -> str:

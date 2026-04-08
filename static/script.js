@@ -557,6 +557,7 @@ document.addEventListener('DOMContentLoaded', () => {
   startClock();
   renderHistoryFromAPI(); // Load chat history from API
   loadSummaryBar();
+  loadWelcomeKPI();
   setInterval(loadSummaryBar, 60000);
   document.querySelectorAll('.tool-item-hint').forEach(el => el.remove());
 
@@ -888,6 +889,10 @@ function addMessage(role, html, fileChipHtml = '') {
 
   msgs.appendChild(row);
   msgs.scrollTop = msgs.scrollHeight;
+  // Typewriter effect on bot messages
+  if (role === 'bot') {
+    requestAnimationFrame(() => applyTypewriter(bubble));
+  }
 
   // persist to current session
   if (currentChatId) {
@@ -1006,6 +1011,12 @@ function handleFileUpload(input) {
         const names = pendingFiles.map(f => f.name).join(', ');
         showToast(`✓ Đã tải ${pendingFiles.length} tệp: ${names}`);
         loadSummaryBar();
+        loadWelcomeKPI();
+        // Auto-analyse right after upload
+        setTimeout(() => {
+          if (!inChatMode) switchToChatMode();
+          sendQuick('Phân tích tổng quan doanh thu cho tôi');
+        }, 600);
         setTimeout(() => (inChatMode ? chatInput2() : chatInput()).focus(), 100);
       } else if (data.error) {
         if (!inChatMode) switchToChatMode();
@@ -1125,11 +1136,13 @@ const CHART_META = {
   product:  { title:'Doanh thu theo sản phẩm', sub:'So sánh từng mặt hàng', askText:'Sản phẩm nào đang bán chạy nhất?' },
   region:   { title:'Phân tích khu vực', sub:'Tỷ trọng doanh thu theo vùng', askText:'Khu vực nào doanh thu kém nhất?' },
   forecast: { title:'Dự báo xu hướng', sub:'Dự báo 3 tháng tiếp theo', askText:'Dự báo doanh thu tháng sau' },
+  compare:  { title:'So sánh kỳ', sub:'So sánh 2 khoảng thời gian', askText:'So sánh doanh thu 2 tháng cho tôi' },
 };
 
 let _activeChart = null;
 
 function openChart(type) {
+  if (type === 'compare') { openComparePanel(); return; }
   const meta = CHART_META[type];
   if (!meta) return;
 
@@ -1163,6 +1176,85 @@ function closeChartPanel() {
   document.getElementById('chartPanel').classList.remove('open');
   document.getElementById('chartPanelOverlay').classList.remove('open');
   if (_activeChart) { _activeChart.destroy(); _activeChart = null; }
+}
+
+// ── Compare Periods ────────────────────────
+function openComparePanel() {
+  document.getElementById('chartPanelTitle').textContent = 'So sánh kỳ';
+  document.getElementById('chartPanelSub').textContent = 'Chọn 2 tháng để so sánh';
+  document.getElementById('chartPanelBody').innerHTML = `
+    <div style="padding:24px">
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px">
+        <div style="flex:1;min-width:120px">
+          <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:6px">Kỳ 1 (YYYY-MM)</label>
+          <input id="cmpP1" type="month" style="width:100%;padding:8px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px" />
+        </div>
+        <div style="flex:1;min-width:120px">
+          <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:6px">Kỳ 2 (YYYY-MM)</label>
+          <input id="cmpP2" type="month" style="width:100%;padding:8px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px" />
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          <button onclick="runCompare()" style="padding:8px 20px;background:var(--grad-btn);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">So sánh</button>
+        </div>
+      </div>
+      <div id="compareResult"></div>
+    </div>`;
+  document.getElementById('chartPanel').classList.add('open');
+  document.getElementById('chartPanelOverlay').classList.add('open');
+}
+
+function runCompare() {
+  const p1 = document.getElementById('cmpP1')?.value;
+  const p2 = document.getElementById('cmpP2')?.value;
+  if (!p1 || !p2) { showToast('Vui lòng chọn cả 2 kỳ'); return; }
+  const res = document.getElementById('compareResult');
+  res.innerHTML = '<div class="chart-loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div><span>Đang so sánh...</span></div>';
+  fetch(`/api/chart-data/?type=compare&p1=${p1}&p2=${p2}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) { res.innerHTML = `<div style="color:var(--red);padding:24px">${escHtml(data.error)}</div>`; return; }
+      const d = data;
+      const chgRev = d.p1_revenue > 0 ? Math.round((d.p2_revenue - d.p1_revenue) / d.p1_revenue * 100) : 0;
+      const chgQty = d.p1_quantity > 0 ? Math.round((d.p2_quantity - d.p1_quantity) / d.p1_quantity * 100) : 0;
+      const fmtR = v => { const n=Number(v||0); if(n>=1e9) return (n/1e9).toFixed(1)+'B'; if(n>=1e6) return (n/1e6).toFixed(1)+'M'; if(n>=1e3) return (n/1e3).toFixed(0)+'K'; return String(n); };
+      const cls = v => v >= 0 ? '#4ade80' : '#f87171';
+      const arrow = v => v >= 0 ? '▲' : '▼';
+      res.innerHTML = `<div class="chart-stats-row" style="margin-bottom:16px">
+        <div class="chart-stat-card"><div class="chart-stat-value">${escHtml(d.p1_label)}</div><div class="chart-stat-label">Kỳ 1</div></div>
+        <div class="chart-stat-card"><div class="chart-stat-value">${escHtml(d.p2_label)}</div><div class="chart-stat-label">Kỳ 2</div></div>
+        <div class="chart-stat-card"><div class="chart-stat-value" style="color:${cls(chgRev)}">${arrow(chgRev)} ${chgRev}%</div><div class="chart-stat-label">Thay đổi DT</div></div>
+      </div>
+      <div class="compare-grid">
+        <div class="compare-row"><span class="cmp-label">Doanh thu Kỳ 1</span><span class="cmp-val">${fmtR(d.p1_revenue)}</span></div>
+        <div class="compare-row"><span class="cmp-label">Doanh thu Kỳ 2</span><span class="cmp-val">${fmtR(d.p2_revenue)}</span></div>
+        <div class="compare-row"><span class="cmp-label">Chênh lệch doanh thu</span><span class="cmp-val" style="color:${cls(chgRev)}">${arrow(chgRev)} ${fmtR(Math.abs(d.p2_revenue - d.p1_revenue))} (${chgRev}%)</span></div>
+        <div class="compare-row"><span class="cmp-label">Số lượng Kỳ 1</span><span class="cmp-val">${Number(d.p1_quantity||0).toLocaleString('vi-VN')}</span></div>
+        <div class="compare-row"><span class="cmp-label">Số lượng Kỳ 2</span><span class="cmp-val">${Number(d.p2_quantity||0).toLocaleString('vi-VN')}</span></div>
+        <div class="compare-row"><span class="cmp-label">Chênh lệch số lượng</span><span class="cmp-val" style="color:${cls(chgQty)}">${arrow(chgQty)} ${chgQty}%</span></div>
+      </div>
+      <div class="chart-canvas-wrap" style="margin-top:20px"><canvas id="_cmpChart" height="200"></canvas></div>
+      <button class="chart-ask-btn" onclick="askAIFromChart('So sánh chi tiết kỳ ${escHtml(d.p1_label)} và kỳ ${escHtml(d.p2_label)} cho tôi')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        Hỏi AI phân tích sâu hơn
+      </button>`;
+
+      // Chart.js bar comparison
+      const ctx = document.getElementById('_cmpChart')?.getContext('2d');
+      if (!ctx) return;
+      if (_activeChart) { _activeChart.destroy(); _activeChart = null; }
+      _activeChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Doanh thu', 'Số lượng (x100)'],
+          datasets: [
+            { label: d.p1_label, data: [d.p1_revenue, (d.p1_quantity||0)*100], backgroundColor: 'rgba(124,58,237,.75)', borderRadius: 6 },
+            { label: d.p2_label, data: [d.p2_revenue, (d.p2_quantity||0)*100], backgroundColor: 'rgba(236,72,153,.75)', borderRadius: 6 },
+          ]
+        },
+        options: { responsive:true, plugins:{legend:{labels:{color:'var(--text)'}}} }
+      });
+    })
+    .catch(() => { res.innerHTML = '<div style="color:var(--red);padding:24px">Lỗi kết nối server</div>'; });
 }
 
 function _fmtRev(v) {
@@ -1501,7 +1593,11 @@ function openDataSources() {
 
 function openExportSettings() {
   closeSettingsMenu();
-  showToast('Tính năng xuất báo cáo đang phát triển — sắp ra mắt!');
+  const link = document.createElement('a');
+  link.href = '/api/export/';
+  link.download = 'revenue_report.xlsx';
+  link.click();
+  showToast('↓ Đang tải Excel report...');
 }
 
 function sendFeedback() {
@@ -1523,6 +1619,91 @@ function showFormatHelp() {
 function showAbout() {
   closeSettingsMenu();
   alert('Revenue AI v1.0\n\nTrợ lý phân tích doanh thu thông minh\nPowered by Gemini 2.5 Flash · Django · Pandas\n\n© 2026 Revenue AI');
+}
+
+// ── Voice input (Web Speech API) ────────────────
+let _voiceRecognition = null;
+function startVoice(inputId) {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRec) { showToast('Trình duyệt không hỗ trợ nhập giọng nói'); return; }
+  const btn = document.getElementById(inputId === 'chatInput' ? 'voiceBtn' : 'voiceBtn2');
+  const input = document.getElementById(inputId);
+  if (_voiceRecognition) { _voiceRecognition.stop(); _voiceRecognition = null; btn?.classList.remove('recording'); return; }
+  const rec = new SpeechRec();
+  rec.lang = 'vi-VN';
+  rec.interimResults = true;
+  rec.maxAlternatives = 1;
+  _voiceRecognition = rec;
+  btn?.classList.add('recording');
+  showToast('🎤 Đang nghe... (bấm lại để dừng)');
+  let final = input.value;
+  rec.onresult = e => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) final += e.results[i][0].transcript;
+      else interim = e.results[i][0].transcript;
+    }
+    input.value = final + interim;
+    autoResizeTextarea(input);
+    syncSendBtn(input, document.getElementById(inputId === 'chatInput' ? 'sendBtn' : 'sendBtn2'));
+  };
+  rec.onend = () => { _voiceRecognition = null; btn?.classList.remove('recording'); };
+  rec.onerror = () => { _voiceRecognition = null; btn?.classList.remove('recording'); showToast('Lỗi nhập giọng — vui lòng thử lại'); };
+  rec.start();
+}
+
+// ── Typewriter reveal (ạp dụng sau khi addMessage) ─────
+function applyTypewriter(el) {
+  const words = [];
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    const parent = node.parentNode;
+    if (!parent || parent.tagName === 'SCRIPT' || parent.tagName === 'STYLE') continue;
+    const parts = node.textContent.split(/(\s+)/);
+    const frag = document.createDocumentFragment();
+    parts.forEach(part => {
+      if (!part) return;
+      if (/^\s+$/.test(part)) { frag.appendChild(document.createTextNode(part)); return; }
+      const span = document.createElement('span');
+      span.className = 'tw-word';
+      span.textContent = part;
+      words.push(span);
+      frag.appendChild(span);
+    });
+    parent.replaceChild(frag, node);
+  }
+  const STEP = 18; // ms per word — fast enough to feel live
+  words.forEach((w, i) => setTimeout(() => w.classList.add('tw-visible'), i * STEP));
+}
+
+// ── Welcome KPI live data ──────────────────────
+function loadWelcomeKPI() {
+  fetch('/api/summary/')
+    .then(r => r.json())
+    .then(data => {
+      const grid = document.getElementById('liveKpiGrid');
+      if (!grid) return;
+      grid.querySelectorAll('.live-kpi-card').forEach(c => c.classList.remove('skeleton'));
+      if (!data.has_data) return; // keep placeholder —
+      const fmtRev = v => {
+        const n = Number(v || 0);
+        if (n >= 1e9) return (n/1e9).toFixed(1).replace(/\.0$/,'') + ' tỷ';
+        if (n >= 1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'') + ' tr';
+        if (n >= 1e3) return (n/1e3).toFixed(0) + 'K';
+        return Math.round(n).toLocaleString('vi-VN');
+      };
+      const chg = Number(data.rev_change || 0);
+      const chgHtml = `<span style="color:${chg >= 0 ? '#4ade80' : '#f87171'}">${chg >= 0 ? '+' : ''}${chg.toFixed(1)}%</span>`;
+      const setVal = (id, html) => { const el = document.getElementById(id); if (el) { el.innerHTML = html; el.classList.add('lkc-loaded'); } };
+      setVal('lkRevenueVal', fmtRev(data.total_revenue));
+      setVal('lkChangeVal',  chgHtml);
+      setVal('lkBestProdVal', escHtml(String(data.best_product || '—')));
+      setVal('lkRowsVal', Number(data.total_rows||0).toLocaleString('vi-VN'));
+    })
+    .catch(() => {
+      document.querySelectorAll('.live-kpi-card').forEach(c => c.classList.remove('skeleton'));
+    });
 }
 
 // Apply saved theme on load

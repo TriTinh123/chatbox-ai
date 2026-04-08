@@ -19,7 +19,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from apps.core.views import health_check, chatbot_index
-from apps.chatbot.views import upload_file, chart_data_view, summary_view
+from apps.chatbot.views import upload_file, chart_data_view, summary_view, export_excel_view
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -30,6 +30,7 @@ urlpatterns = [
     path('upload', upload_file, name='upload'),
     path('api/chart-data/', chart_data_view, name='chart-data'),
     path('api/summary/', summary_view, name='summary'),
+    path('api/export/', export_excel_view, name='export-excel'),
     path('api/chatbot/', include('apps.chatbot.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
