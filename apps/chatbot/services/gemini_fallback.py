@@ -152,6 +152,95 @@ FORMAT OUTPUT:
             raise
 
 
+def ask_gemini_stream(user_message: str, data_context: dict, conversation_history: list = None):
+    """
+    Generator: yields text chunks từ Gemini streaming API.
+    Cùng logic với ask_gemini() nhưng dùng generate_content_stream().
+    """
+    if not client:
+        raise ValueError("GEMINI_API_KEY chưa được cấu hình")
+
+    dominant_vn = {
+        "quantity": "số lượng bán giảm",
+        "price":    "giá bán giảm",
+        "both":     "cả số lượng lẫn giá đều giảm",
+    }.get(data_context.get("dominant", "both"), "không xác định")
+
+    data_lines = ""
+    if data_context:
+        data_lines = (
+            f"- Tháng hiện tại: {data_context.get('cur_month', 'N/A')}\n"
+            f"- Doanh thu thay đổi: {data_context.get('chg_pct', 0)}% "
+            f"so với tháng {data_context.get('prev_month', 'trước')}\n"
+            f"- Doanh thu hiện tại: {data_context.get('cur_rev', 'N/A')}\n"
+            f"- Doanh thu tháng trước: {data_context.get('prev_rev', 'N/A')}\n"
+            f"- Sản phẩm giảm mạnh nhất: {data_context.get('worst_product', 'N/A')} "
+            f"({data_context.get('prod_chg', 0)}%)\n"
+            f"- Kênh kém nhất: {data_context.get('worst_channel', 'N/A')} "
+            f"({data_context.get('ch_chg', 0)}%)\n"
+            f"- Nguyên nhân chính: {dominant_vn}\n"
+        )
+        if "product_breakdown" in data_context:
+            data_lines += "\nChi tiết sản phẩm (Top 3 ảnh hưởng lớn nhất):\n"
+            for prod in data_context["product_breakdown"][:3]:
+                data_lines += f"  + {prod['product']}: {prod['chg_pct']}% (đóng góp {prod['impact_pct']}% vào sụt giảm)\n"
+        if "channel_breakdown" in data_context:
+            data_lines += "\nChi tiết kênh bán:\n"
+            for ch in data_context["channel_breakdown"]:
+                data_lines += f"  + {ch['channel']}: {ch['chg_pct']}% (đóng góp {ch['impact_pct']}%)\n"
+        if "region_breakdown" in data_context:
+            data_lines += "\nChi tiết khu vực:\n"
+            for reg in data_context["region_breakdown"]:
+                data_lines += f"  + {reg['region']}: {reg['chg_pct']}% (đóng góp {reg['impact_pct']}%)\n"
+
+    data_block = f"\n[DỮ LIỆU THỰC TẾ TỪ sales.csv]\n{data_lines}[HẾT DỮ LIỆU]\n" if data_lines else ""
+
+    system_instruction = f"""Bạn là Revenue AI - chuyên gia phân tích doanh thu, trò chuyện tự nhiên như người thật.
+{data_block}
+NGUYÊN TẮC TRẢ LỜI:
+- Luôn nhớ và tham chiếu TOÀN BỘ cuộc hội thoại trong session này
+- Trả lời ĐÚNG và ĐỦ câu hỏi được hỏi — không lạc đề, không lặp lại nội dung đã nói trước đó
+- Nếu user hỏi "cái đó", "thêm chi tiết", "tại sao vậy" → tham chiếu ngữ cảnh trước đó
+- Giọng điệu tự nhiên, mạch lạc — như đang nói chuyện trực tiếp với người thật
+- Dùng số liệu thực từ dữ liệu để chứng minh luận điểm
+- Trả lời bằng tiếng Việt
+
+FORMAT OUTPUT:
+- HTML thuần (KHÔNG markdown, KHÔNG ```, KHÔNG **)
+- Dùng <br> xuống dòng, <strong> nhấn mạnh, <ul><li> khi cần liệt kê
+- Tối đa 2-3 emoji, đặt hợp lý
+- 200-400 từ mặc định (trừ khi user yêu cầu phân tích sâu/chi tiết)"""
+
+    contents = []
+    if conversation_history:
+        for msg in conversation_history:
+            role = 'user' if msg['role'] == 'user' else 'model'
+            text = msg['text']
+            if role == 'model':
+                text = _strip_html(text)
+            contents.append(types.Content(
+                role=role,
+                parts=[types.Part(text=text)]
+            ))
+
+    contents.append(types.Content(
+        role='user',
+        parts=[types.Part(text=user_message)]
+    ))
+
+    stream = client.models.generate_content_stream(
+        model="gemini-2.5-flash",
+        contents=contents,
+        config=types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            temperature=0.7,
+        )
+    )
+    for chunk in stream:
+        if chunk.text:
+            yield chunk.text
+
+
 def ask_gemini_file_mode(user_message: str, file_content: str, filename: str) -> str:
     """
     Chế độ hỏi đáp tự do về file đã upload.

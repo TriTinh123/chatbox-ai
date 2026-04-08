@@ -5,7 +5,8 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth.models import User
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, StreamingHttpResponse
+import json
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.db import models, transaction
@@ -28,7 +29,7 @@ from .services.insights import (
     build_quantity_or_price, build_worst_region
 )
 from .services.recommendations import build_recommendation
-from .services.gemini_fallback import ask_gemini, GeminiRateLimitError
+from .services.gemini_fallback import ask_gemini, ask_gemini_stream, GeminiRateLimitError
 
 
 class ChatSessionViewSet(viewsets.ModelViewSet):
@@ -597,6 +598,101 @@ def export_excel_view(request):
     except Exception as e:
         logger.error("export_excel_view error:\n%s", traceback.format_exc())
         return JsonResponse({'error': str(e)}, status=500)
+
+
+# ══ STREAMING CHAT ENDPOINT ══
+@csrf_exempt
+@require_http_methods(['POST'])
+def stream_chat_view(request):
+    """Stream AI response via Server-Sent Events (text/event-stream)."""
+    try:
+        body = json.loads(request.body)
+        user_text = body.get('text', '').strip()
+        session_key = body.get('session_key', 'default')
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    if not user_text:
+        return JsonResponse({'error': 'Empty message'}, status=400)
+
+    # Get or create anonymous session
+    session_title = f'{session_key} - Anonymous'
+    chat_session = ChatSession.objects.filter(
+        user__isnull=True, title=session_title
+    ).first()
+    if not chat_session:
+        chat_session = ChatSession.objects.create(user=None, title=session_title)
+
+    # Save user message
+    Message.objects.create(
+        chat_session=chat_session,
+        role='user',
+        text=user_text,
+        html=f'<div>{user_text}</div>'
+    )
+
+    # Build conversation history (exclude the message just saved)
+    all_msgs = list(Message.objects.filter(
+        chat_session=chat_session
+    ).order_by('created_at'))
+    conversation_history = [
+        {'role': m.role, 'text': m.text} for m in all_msgs[:-1]
+    ]
+
+    # Build data context
+    if SalesData.objects.exists():
+        sales_qs = SalesData.objects.all().values(
+            'date', 'product', 'channel', 'region', 'quantity', 'unit_price', 'revenue'
+        )
+        df = pd.DataFrame(list(sales_qs))
+        df['date'] = pd.to_datetime(df['date'])
+        analyzer = DataAnalyzer(df=df)
+        data_context = analyzer.recommendation()
+        data_context.update(analyzer.breakdown_detailed())
+        data_context.update(analyzer.advanced_analysis())
+    else:
+        data_context = {}
+
+    chat_session_id = chat_session.id
+    user_text_snap = user_text
+
+    def event_stream():
+        full_chunks = []
+        try:
+            for chunk in ask_gemini_stream(user_text_snap, data_context, conversation_history):
+                full_chunks.append(chunk)
+                yield f"data: {json.dumps(chunk)}\n\n"
+        except GeminiRateLimitError:
+            err_chunk = '<div style="color:#f59e0b">\u23f3 Gemini \u0111ang b\u1eadn, vui l\u00f2ng th\u1eed l\u1ea1i sau 20 gi\u00e2y.</div>'
+            full_chunks.append(err_chunk)
+            yield f"data: {json.dumps(err_chunk)}\n\n"
+        except Exception as exc:
+            err_chunk = f'<div style="color:#f28b82">L\u1ed7i: {str(exc)[:100]}</div>'
+            full_chunks.append(err_chunk)
+            yield f"data: {json.dumps(err_chunk)}\n\n"
+        finally:
+            bot_html = ''.join(full_chunks)
+            if bot_html:
+                try:
+                    cs = ChatSession.objects.get(id=chat_session_id)
+                    Message.objects.create(
+                        chat_session=cs,
+                        role='assistant',
+                        text=bot_html,
+                        html=bot_html
+                    )
+                    if Message.objects.filter(chat_session=cs, role='user').count() == 1:
+                        title = user_text_snap[:50] if len(user_text_snap) <= 52 else user_text_snap[:49] + '...'
+                        cs.title = title
+                        cs.save()
+                except Exception:
+                    pass
+            yield "data: [DONE]\n\n"
+
+    response = StreamingHttpResponse(event_stream(), content_type='text/event-stream; charset=utf-8')
+    response['Cache-Control'] = 'no-cache, no-store'
+    response['X-Accel-Buffering'] = 'no'
+    return response
 
 
 def summary_view(request):

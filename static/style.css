@@ -1927,3 +1927,17 @@ body.dark-mode .chip:hover {
 .cmp-label { color: var(--text-muted); }
 .cmp-val { font-weight: 600; color: var(--text-main); }
 
+/* ── Streaming cursor ─────────────────────── */
+.stream-cursor {
+  display: inline-block;
+  animation: streamBlink 0.85s step-end infinite;
+  color: var(--accent, #a855f7);
+  font-size: 0.9em;
+  line-height: 1;
+  vertical-align: baseline;
+}
+@keyframes streamBlink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+

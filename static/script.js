@@ -744,74 +744,126 @@ function doSend(text) {
 }
 
 function _fetchChat(text, attempt) {
-  showTyping();
   isWaiting = true;
+  _lastUserText = text;
 
-  const apiUrl = (window.DJANGO_API_BASE || '/api/chatbot/public') + '/send-message/';
-  
-  // Get CSRF token from DOM
+  const streamUrl = '/api/stream/';
   const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
-  
-  // Get JWT token from localStorage
-  const jwtToken = localStorage.getItem('accessToken');
-  
-  const headers = { 'Content-Type': 'application/json' };
-  if (csrfToken) {
-    headers['X-CSRFToken'] = csrfToken;
-  }
-  if (jwtToken) {
-    headers['Authorization'] = 'Bearer ' + jwtToken;
-  }
-  
-  fetch(apiUrl, {
+  const jwtToken  = localStorage.getItem('accessToken');
+  const headers   = { 'Content-Type': 'application/json' };
+  if (csrfToken) headers['X-CSRFToken']   = csrfToken;
+  if (jwtToken)  headers['Authorization'] = 'Bearer ' + jwtToken;
+
+  // Create streaming bubble immediately (cursor-only until first chunk)
+  hideTyping();
+  const { row, bubble } = _createStreamBubble();
+
+  fetch(streamUrl, {
     method: 'POST',
-    headers: headers,
-    body: JSON.stringify({ text: text, session_key: currentChatId || 'default' })
+    headers,
+    body: JSON.stringify({ text, session_key: currentChatId || 'default' })
   })
-  .then(r => {
+  .then(async r => {
     if (r.status === 401) {
-      // Unauthorized - redirect to login
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
       window.location.href = '/auth/';
       return;
     }
-    if (r.status === 429) {
-      return r.json().then(d => { throw { rateLimited: true, retryAfter: d.retry_after || 20 }; });
-    }
-    if (!r.ok) {
+    if (!r.ok || !r.body) {
       throw new Error(`HTTP ${r.status}: ${r.statusText}`);
     }
-    return r.json();
-  })
-  .then(data => {
-    hideTyping();
+
+    const reader  = r.body.getReader();
+    const decoder = new TextDecoder();
+    let sseBuffer = '';
+    let fullText  = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      sseBuffer += decoder.decode(value, { stream: true });
+      const lines = sseBuffer.split('\n');
+      sseBuffer = lines.pop(); // keep partial last line
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6).trim();
+        if (data === '[DONE]') {
+          _finalizeStreamBubble(row, bubble, fullText);
+          isWaiting = false;
+          return;
+        }
+        try {
+          const chunk = JSON.parse(data);
+          if (typeof chunk === 'string') {
+            fullText += chunk;
+            bubble.innerHTML = fullText + '<span class="stream-cursor">&#x2587;</span>';
+            chatMessages().scrollTop = chatMessages().scrollHeight;
+          }
+        } catch (e) { /* ignore parse errors on partial lines */ }
+      }
+    }
+    // stream ended without [DONE]
+    _finalizeStreamBubble(row, bubble, fullText);
     isWaiting = false;
-    
-    if (!data) {
-      throw new Error('Empty response from server');
-    }
-    
-    const reply = data.bot_response || data.reply || data.html || data.response || data.error || 'Không có phản hồi.';
-    if (!reply) {
-      throw new Error('No reply found in response');
-    }
-    
-    addMessage('bot', reply);
   })
   .catch(err => {
-    console.error('Error in _fetchChat:', err);
-    if (err && err.rateLimited) {
-      startRateLimitCountdown(err.retryAfter, text);
-    } else {
-      hideTyping();
-      isWaiting = false;
-      const errorMsg = err?.message || 'Lỗi không xác định';
-      console.error('Final error:', errorMsg);
-      addMessage('bot', `<div style="color:#f28b82">Lỗi: ${errorMsg}</div>`);
-    }
+    bubble.innerHTML = `<div style="color:#f28b82">Lỗi: ${escHtml(err?.message || 'Lỗi không xác định')}</div>`;
+    isWaiting = false;
   });
+}
+
+// ── Streaming bubble helpers ───────────────
+function _createStreamBubble() {
+  const msgs   = chatMessages();
+  const row    = document.createElement('div');
+  row.className = 'msg-wrap bot';
+
+  const avatar = document.createElement('div');
+  avatar.className = 'msg-avatar';
+  avatar.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><rect x="2" y="12" width="4" height="10" rx="1.5" fill="white" opacity=".7"/><rect x="8" y="7" width="4" height="15" rx="1.5" fill="white" opacity=".85"/><rect x="14" y="3" width="4" height="19" rx="1.5" fill="white"/><polyline points="2,15 8,9 14,11 22,5" stroke="#fde68a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>';
+  row.appendChild(avatar);
+
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.innerHTML = '<span class="stream-cursor">&#x2587;</span>';
+  row.appendChild(bubble);
+
+  msgs.appendChild(row);
+  msgs.scrollTop = msgs.scrollHeight;
+  return { row, bubble };
+}
+
+function _finalizeStreamBubble(row, bubble, fullText) {
+  if (!fullText) {
+    bubble.innerHTML = '<div style="color:#f28b82">Không có phản hồi.</div>';
+    return;
+  }
+  const enriched = _enrichBotHtml(fullText);
+  bubble.innerHTML = enriched;
+
+  const actions = document.createElement('div');
+  actions.className = 'msg-actions';
+  actions.innerHTML = `
+    <button class="msg-action-btn" title="Sao chép" onclick="copyMessage(this)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+      Sao chép
+    </button>
+    <button class="msg-action-btn" title="Tạo lại" onclick="regenerateResponse(this)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+      Tạo lại
+    </button>`;
+  row.appendChild(actions);
+
+  // Persist to session
+  if (currentChatId) {
+    currentMessages.push({ role: 'bot', html: enriched, text: '' });
+    saveCurrentChat();
+  }
+  chatMessages().scrollTop = chatMessages().scrollHeight;
 }
 
 let _countdownTimer = null;
