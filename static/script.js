@@ -174,12 +174,12 @@ function renderHistory() {
       ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 00-1.11-1.79l-1.78-.9A2 2 0 0115 10.76V6h1a2 2 0 000-4H8a2 2 0 000 4h1v4.76a2 2 0 01-1.11 1.79l-1.78.9A2 2 0 005 15.24V17z"/></svg>`
       : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`;
     return `<div class="history-item-wrap">
-      <div class="sidebar-item${act}" onclick="loadChat('${h.id}')" title="${escHtml(h.title)}">
+      <div class="sidebar-item${act}" data-action="load-chat" data-chat-id="${escAttr(h.id)}" title="${escAttr(h.title)}">
         <div class="sidebar-item-icon ${h.pinned ? 'amber' : 'blue'}">${iconSvg}</div>
         <span class="history-title">${escHtml(h.title)}</span>
         <span class="history-ts">${ts}</span>
       </div>
-      <button class="history-menu-btn" data-id="${h.id}" onclick="toggleHistoryMenu(event,'${h.id}')" title="Tùy chọn">
+      <button class="history-menu-btn" data-action="toggle-history-menu" data-chat-id="${escAttr(h.id)}" data-id="${escAttr(h.id)}" title="Tùy chọn">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
       </button>
     </div>`;
@@ -214,12 +214,12 @@ async function renderHistoryFromAPI() {
       : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`;
     
     return `<div class="history-item-wrap">
-      <div class="sidebar-item${act}" onclick="loadChatFromAPI('${h.id}')" title="${escHtml(h.title)}">
+      <div class="sidebar-item${act}" data-action="load-chat-api" data-chat-id="${escAttr(h.id)}" title="${escAttr(h.title)}">
         <div class="sidebar-item-icon ${h.pinned ? 'amber' : 'blue'}">${iconSvg}</div>
         <span class="history-title">${escHtml(h.title)}</span>
         <span class="history-ts">${ts}</span>
       </div>
-      <button class="history-menu-btn" data-id="${h.id}" onclick="toggleHistoryMenuAPI(event,'${h.id}')" title="Tùy chọn">
+      <button class="history-menu-btn" data-action="toggle-history-menu-api" data-chat-id="${escAttr(h.id)}" data-id="${escAttr(h.id)}" title="Tùy chọn">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
       </button>
     </div>`;
@@ -228,12 +228,11 @@ async function renderHistoryFromAPI() {
 
 let _openHistoryMenuId = null;
 
-function toggleHistoryMenu(e, id) {
-  e.stopPropagation();
+function toggleHistoryMenu(id, triggerEl) {
   if (_openHistoryMenuId === id) { closeAllHistoryMenus(); return; }
   closeAllHistoryMenus();
   _openHistoryMenuId = id;
-  const btn  = e.currentTarget;
+  const btn  = triggerEl;
   const wrap = btn.closest('.history-item-wrap');
   const rect = btn.getBoundingClientRect();
   const list = _getHistory();
@@ -248,20 +247,20 @@ function toggleHistoryMenu(e, id) {
     document.body.appendChild(menu);
   }
   menu.innerHTML = `
-    <button class="history-dd-item" onclick="shareChat('${id}')">
+    <button class="history-dd-item" data-action="share-chat" data-chat-id="${escAttr(id)}">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
       Chia sẻ cuộc trò chuyện
     </button>
-    <button class="history-dd-item" onclick="pinChat('${id}')">
+    <button class="history-dd-item" data-action="pin-chat" data-chat-id="${escAttr(id)}">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 00-1.11-1.79l-1.78-.9A2 2 0 0115 10.76V6h1a2 2 0 000-4H8a2 2 0 000 4h1v4.76a2 2 0 01-1.11 1.79l-1.78.9A2 2 0 005 15.24V17z"/></svg>
       ${chat.pinned ? 'Bỏ ghim' : 'Ghim'}
     </button>
-    <button class="history-dd-item" onclick="renameChat('${id}')">
+    <button class="history-dd-item" data-action="rename-chat" data-chat-id="${escAttr(id)}">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
       Đổi tên
     </button>
     <div class="history-dd-divider"></div>
-    <button class="history-dd-item danger" onclick="deleteChat('${id}')">
+    <button class="history-dd-item danger" data-action="delete-chat" data-chat-id="${escAttr(id)}">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
       Xoá
     </button>`;
@@ -313,16 +312,15 @@ async function shareChatAPI(id) {
     .catch(() => showToast('❌ Không thể sao chép'));
 }
 
-function toggleHistoryMenuAPI(e, id) {
+function toggleHistoryMenuAPI(id, triggerEl) {
   /**Show menu for API-based chat session.*/
-  e.stopPropagation();
   if (_openHistoryMenuId === id) {
     closeAllHistoryMenus();
     return;
   }
   closeAllHistoryMenus();
   _openHistoryMenuId = id;
-  const btn  = e.currentTarget;
+  const btn  = triggerEl;
   const wrap = btn.closest('.history-item-wrap');
   const rect = btn.getBoundingClientRect();
   const chat = apiChatSessions.find(h => h.id === parseInt(id));
@@ -336,12 +334,12 @@ function toggleHistoryMenuAPI(e, id) {
     document.body.appendChild(menu);
   }
   menu.innerHTML = `
-    <button class="history-dd-item" onclick="shareChatAPI('${id}')">
+    <button class="history-dd-item" data-action="share-chat-api" data-chat-id="${escAttr(id)}">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
       Chia sẻ cuộc trò chuyện
     </button>
     <div class="history-dd-divider"></div>
-    <button class="history-dd-item danger" onclick="deleteChatAPI('${id}')">
+    <button class="history-dd-item danger" data-action="delete-chat-api" data-chat-id="${escAttr(id)}">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
       Xoá
     </button>`;
@@ -551,14 +549,164 @@ const sendBtn    = () => document.getElementById('sendBtn');
 const chatInput2 = () => document.getElementById('chatInput2');
 const sendBtn2   = () => document.getElementById('sendBtn2');
 
+function closeToolMenuById(menuId) {
+  if (menuId === 'toolMenu2') closeToolMenu2();
+  else if (menuId === 'toolMenu') closeToolMenu();
+}
+
+function handleDelegatedClick(e) {
+  const actionEl = e.target.closest('[data-action]');
+  const stopContainer = e.target.closest('[data-stop-propagation]');
+  if (stopContainer && actionEl && !stopContainer.contains(actionEl)) return;
+  if (!actionEl) return;
+
+  const { action, chartType, theme, inputId, message, closeToolMenu: menuId, chatId } = actionEl.dataset;
+
+  switch (action) {
+    case 'toggle-sidebar':
+      toggleSidebar();
+      break;
+    case 'new-chat':
+      newChat();
+      break;
+    case 'open-chart':
+      openChart(chartType);
+      break;
+    case 'open-activity-log':
+      openActivityLog();
+      break;
+    case 'open-data-sources':
+      openDataSources();
+      break;
+    case 'open-export-settings':
+      openExportSettings();
+      break;
+    case 'toggle-theme-menu':
+      toggleThemeMenu();
+      break;
+    case 'set-theme':
+      setTheme(theme);
+      break;
+    case 'clear-history':
+      clearAllHistory();
+      break;
+    case 'toggle-help-menu':
+      toggleHelpMenu();
+      break;
+    case 'show-shortcuts-help':
+      showShortcutsHelp();
+      break;
+    case 'show-format-help':
+      showFormatHelp();
+      break;
+    case 'show-about':
+      showAbout();
+      break;
+    case 'send-feedback':
+      sendFeedback();
+      break;
+    case 'handle-logout':
+      handleLogout();
+      break;
+    case 'toggle-settings-menu':
+      toggleSettingsMenu();
+      break;
+    case 'toggle-main-dark':
+      toggleMainAreaDarkMode();
+      break;
+    case 'clear-file':
+      clearFile();
+      break;
+    case 'start-voice':
+      startVoice(inputId);
+      break;
+    case 'send-message':
+      sendMessage();
+      break;
+    case 'send-message-2':
+      sendMessage2();
+      break;
+    case 'toggle-tool-menu':
+      toggleToolMenu();
+      break;
+    case 'toggle-tool-menu-2':
+      toggleToolMenu2();
+      break;
+    case 'trigger-upload':
+      triggerUpload();
+      break;
+    case 'send-quick':
+      sendQuick(message || '');
+      closeToolMenuById(menuId);
+      break;
+    case 'close-chart-panel':
+      if (actionEl.id === 'chartPanelOverlay' || actionEl.classList.contains('chart-panel-close')) closeChartPanel();
+      break;
+    case 'close-chart-modal':
+      if (actionEl.id === 'chartModal' || actionEl.classList.contains('chart-modal-close')) closeChartModal();
+      break;
+    case 'load-chat':
+      loadChat(chatId);
+      break;
+    case 'load-chat-api':
+      loadChatFromAPI(chatId);
+      break;
+    case 'toggle-history-menu':
+      toggleHistoryMenu(chatId, actionEl);
+      break;
+    case 'toggle-history-menu-api':
+      toggleHistoryMenuAPI(chatId, actionEl);
+      break;
+    case 'share-chat':
+      shareChat(chatId);
+      break;
+    case 'share-chat-api':
+      shareChatAPI(chatId);
+      break;
+    case 'pin-chat':
+      pinChat(chatId);
+      break;
+    case 'rename-chat':
+      renameChat(chatId);
+      break;
+    case 'delete-chat':
+      deleteChat(chatId);
+      break;
+    case 'delete-chat-api':
+      deleteChatAPI(chatId);
+      break;
+    case 'copy-message':
+      copyMessage(actionEl);
+      break;
+    case 'regenerate-response':
+      regenerateResponse(actionEl);
+      break;
+    case 'run-compare':
+      runCompare();
+      break;
+    case 'ask-ai-from-chart':
+      askAIFromChart(message || '');
+      break;
+    default:
+      break;
+  }
+}
+
+function handleDelegatedKeydown(e) {
+  const input = e.target.closest('[data-enter-send]');
+  if (!input || e.key !== 'Enter' || e.shiftKey) return;
+  e.preventDefault();
+  if (input.dataset.enterSend === 'chatInput') sendMessage();
+  if (input.dataset.enterSend === 'chatInput2') sendMessage2();
+}
+
 // ── Init ───────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   setTodayDate();
   startClock();
+  _syncNavButtons(false);
   renderHistoryFromAPI(); // Load chat history from API
-  loadSummaryBar();
   loadWelcomeKPI();
-  setInterval(loadSummaryBar, 60000);
   document.querySelectorAll('.tool-item-hint').forEach(el => el.remove());
 
   // Restore last active chat session after page reload (F5)
@@ -579,12 +727,33 @@ document.addEventListener('DOMContentLoaded', () => {
     if (savedFiles && savedFiles.length > 0) {
       pendingFiles = savedFiles;
       showFileBanner(pendingFiles);
+      loadSummaryBar();
+      setInterval(loadSummaryBar, 60000);
     }
   } catch (e) { localStorage.removeItem('revenueAI_lastFiles'); }
 
-  // enable/disable send buttons
-  chatInput().addEventListener('input',  () => { syncSendBtn(chatInput(), sendBtn()); autoResizeTextarea(chatInput()); });
-  chatInput2().addEventListener('input', () => { syncSendBtn(chatInput2(), sendBtn2()); autoResizeTextarea(chatInput2()); });
+  // enable/disable send buttons + character counter
+  chatInput().addEventListener('input',  () => { syncSendBtn(chatInput(), sendBtn()); autoResizeTextarea(chatInput()); updateCharCounter(chatInput(), 'charCount'); });
+  chatInput2().addEventListener('input', () => { syncSendBtn(chatInput2(), sendBtn2()); autoResizeTextarea(chatInput2()); updateCharCounter(chatInput2(), 'charCount2'); });
+  chatInput().addEventListener('keydown', handleKey);
+  chatInput2().addEventListener('keydown', handleKey2);
+  sendBtn().addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    sendMessage();
+  });
+  sendBtn2().addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    sendMessage2();
+  });
+  document.getElementById('fileUploadInput')?.addEventListener('change', (event) => handleFileUpload(event.target));
+  document.addEventListener('click', handleDelegatedClick);
+  document.addEventListener('keydown', handleDelegatedKeydown);
+  syncSendBtn(chatInput(), sendBtn());
+  syncSendBtn(chatInput2(), sendBtn2());
+  updateCharCounter(chatInput(), 'charCount');
+  updateCharCounter(chatInput2(), 'charCount2');
 
 
 
@@ -607,6 +776,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function syncSendBtn(input, btn) {
   btn.disabled = input.value.trim() === '';
+}
+
+const CHAR_MAX = 4000;
+function updateCharCounter(input, counterId) {
+  const el = document.getElementById(counterId);
+  if (!el) return;
+  const len = input.value.length;
+  el.textContent = `${len.toLocaleString()} / ${CHAR_MAX.toLocaleString()}`;
+  el.classList.toggle('warn',  len >= 3600 && len < CHAR_MAX);
+  el.classList.toggle('limit', len >= CHAR_MAX);
 }
 
 function autoResizeTextarea(ta) {
@@ -739,7 +918,7 @@ function doSend(text) {
        </div>`).join('')
     : '';
   addMessage('user', escHtml(text), fileChips);
-  clearFile();  // Remove file banner after sending
+  _dismissFileBanner();  // hide banner only — summary bar stays visible
   _fetchChat(text);
 }
 
@@ -829,7 +1008,14 @@ function _createStreamBubble() {
 
   const bubble = document.createElement('div');
   bubble.className = 'msg-bubble';
-  bubble.innerHTML = '<span class="stream-cursor">&#x2587;</span>';
+  bubble.innerHTML = `<div class="thinking-state">
+    <svg class="thinking-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.44-3.14z"/>
+      <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.44-3.14z"/>
+    </svg>
+    <span class="thinking-text">Đang suy nghĩ</span>
+    <span class="thinking-dots"><i></i><i></i><i></i></span>
+  </div>`;
   row.appendChild(bubble);
 
   msgs.appendChild(row);
@@ -848,11 +1034,11 @@ function _finalizeStreamBubble(row, bubble, fullText) {
   const actions = document.createElement('div');
   actions.className = 'msg-actions';
   actions.innerHTML = `
-    <button class="msg-action-btn" title="Sao chép" onclick="copyMessage(this)">
+    <button class="msg-action-btn" data-action="copy-message" title="Sao chép">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
       Sao chép
     </button>
-    <button class="msg-action-btn" title="Tạo lại" onclick="regenerateResponse(this)">
+    <button class="msg-action-btn" data-action="regenerate-response" title="Tạo lại">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
       Tạo lại
     </button>`;
@@ -924,11 +1110,11 @@ function addMessage(role, html, fileChipHtml = '') {
     const actions = document.createElement('div');
     actions.className = 'msg-actions';
     actions.innerHTML = `
-      <button class="msg-action-btn" title="Sao chép" onclick="copyMessage(this)">
+      <button class="msg-action-btn" data-action="copy-message" title="Sao chép">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
         Sao chép
       </button>
-      <button class="msg-action-btn" title="Tạo lại" onclick="regenerateResponse(this)">
+      <button class="msg-action-btn" data-action="regenerate-response" title="Tạo lại">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
         Tạo lại
       </button>`;
@@ -1062,14 +1248,15 @@ function handleFileUpload(input) {
         localStorage.setItem('revenueAI_lastFiles', JSON.stringify(pendingFiles));
         const names = pendingFiles.map(f => f.name).join(', ');
         showToast(`✓ Đã tải ${pendingFiles.length} tệp: ${names}`);
+
+        // Bar shows immediately — data from this file is now in the DB
         loadSummaryBar();
-        loadWelcomeKPI();
-        // Auto-analyse right after upload
-        setTimeout(() => {
-          if (!inChatMode) switchToChatMode();
-          sendQuick('Phân tích tổng quan doanh thu cho tôi');
-        }, 600);
-        setTimeout(() => (inChatMode ? chatInput2() : chatInput()).focus(), 100);
+        setInterval(loadSummaryBar, 60000);
+
+        // Switch to chat mode and let user type their own question
+        isWaiting = false;
+        switchToChatMode();
+        setTimeout(() => chatInput2().focus(), 150);
       } else if (data.error) {
         if (!inChatMode) switchToChatMode();
         addMessage('bot', `<div style="color:#f28b82">⚠️ ${escHtml(data.error)}</div>`);
@@ -1120,8 +1307,16 @@ function hideUploadProgress() {
   if (el) { el.classList.remove('show'); }
 }
 
+function _syncNavButtons(hasFile) {
+  document.querySelectorAll('[data-action="open-chart"]').forEach(btn => {
+    btn.classList.toggle('nav-no-data', !hasFile);
+    btn.title = hasFile ? '' : 'Tải file Excel để xem biểu đồ';
+  });
+}
+
 function showFileBanner(files) {
   if (!files || files.length === 0) return;
+  _syncNavButtons(true);
 
   ['fileBanner','fileBanner2'].forEach((id, i) => {
     const el = document.getElementById(id);
@@ -1143,6 +1338,18 @@ function showFileBanner(files) {
 function clearFile() {
   pendingFiles = [];
   localStorage.removeItem('revenueAI_lastFiles');
+  _syncNavButtons(false);
+  ['fileBanner','fileBanner2'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('has-file');
+  });
+  document.getElementById('summaryBar')?.classList.remove('sb-visible');
+}
+
+// Only hides the file attachment banner after sending — does NOT clear
+// the summary bar or nav state (data is still uploaded in this session)
+function _dismissFileBanner() {
+  pendingFiles = [];
   ['fileBanner','fileBanner2'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.remove('has-file');
@@ -1179,6 +1386,10 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+function escAttr(s) {
+  return escHtml(s).replace(/'/g, '&#39;');
+}
+
 // ═══════════════════════════════════════════
 //  CHART PANEL
 // ═══════════════════════════════════════════
@@ -1194,6 +1405,10 @@ const CHART_META = {
 let _activeChart = null;
 
 function openChart(type) {
+  if (!pendingFiles.length) {
+    showToast('Vui lòng tải file Excel trước khi xem biểu đồ.');
+    return;
+  }
   if (type === 'compare') { openComparePanel(); return; }
   const meta = CHART_META[type];
   if (!meta) return;
@@ -1246,7 +1461,7 @@ function openComparePanel() {
           <input id="cmpP2" type="month" style="width:100%;padding:8px 12px;border:1px solid var(--border2);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px" />
         </div>
         <div style="display:flex;align-items:flex-end">
-          <button onclick="runCompare()" style="padding:8px 20px;background:var(--grad-btn);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">So sánh</button>
+          <button data-action="run-compare" style="padding:8px 20px;background:var(--grad-btn);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">So sánh</button>
         </div>
       </div>
       <div id="compareResult"></div>
@@ -1285,7 +1500,7 @@ function runCompare() {
         <div class="compare-row"><span class="cmp-label">Chênh lệch số lượng</span><span class="cmp-val" style="color:${cls(chgQty)}">${arrow(chgQty)} ${chgQty}%</span></div>
       </div>
       <div class="chart-canvas-wrap" style="margin-top:20px"><canvas id="_cmpChart" height="200"></canvas></div>
-      <button class="chart-ask-btn" onclick="askAIFromChart('So sánh chi tiết kỳ ${escHtml(d.p1_label)} và kỳ ${escHtml(d.p2_label)} cho tôi')">
+      <button class="chart-ask-btn" data-action="ask-ai-from-chart" data-message="${escAttr(`So sánh chi tiết kỳ ${d.p1_label} và kỳ ${d.p2_label} cho tôi`)}">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
         Hỏi AI phân tích sâu hơn
       </button>`;
@@ -1336,7 +1551,7 @@ function _renderChartPanel(type, data, meta) {
   const heights = { overview:220, product:300, region:260, decline:240, forecast:230 };
   body.innerHTML = statsHtml
     + `<div class="chart-canvas-wrap"><canvas id="_mainChart" height="${heights[type] || 240}"></canvas></div>`
-    + `<button class="chart-ask-btn" onclick="askAIFromChart('${escHtml(meta.askText)}')">
+    + `<button class="chart-ask-btn" data-action="ask-ai-from-chart" data-message="${escAttr(meta.askText)}">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
         Hỏi AI phân tích sâu hơn
        </button>`;
@@ -1572,16 +1787,14 @@ function closeSettingsMenu() {
   document.getElementById('helpSubMenu')?.classList.remove('open');
 }
 
-function toggleThemeMenu(e) {
-  e.stopPropagation();
+function toggleThemeMenu() {
   const m = document.getElementById('themeSubMenu');
   const h = document.getElementById('helpSubMenu');
   h?.classList.remove('open');
   m?.classList.toggle('open');
 }
 
-function toggleHelpMenu(e) {
-  e.stopPropagation();
+function toggleHelpMenu() {
   const h = document.getElementById('helpSubMenu');
   const m = document.getElementById('themeSubMenu');
   m?.classList.remove('open');
@@ -1731,12 +1944,14 @@ function applyTypewriter(el) {
 
 // ── Welcome KPI live data ──────────────────────
 function loadWelcomeKPI() {
+  const grid = document.getElementById('liveKpiGrid');
+  if (grid) grid.querySelectorAll('.live-kpi-card').forEach(c => c.classList.remove('skeleton'));
+  if (!pendingFiles.length) return; // no file — keep placeholder "—"
   fetch('/api/summary/')
     .then(r => r.json())
     .then(data => {
-      const grid = document.getElementById('liveKpiGrid');
-      if (!grid) return;
-      grid.querySelectorAll('.live-kpi-card').forEach(c => c.classList.remove('skeleton'));
+      const grid2 = document.getElementById('liveKpiGrid');
+      if (!grid2) return;
       if (!data.has_data) return; // keep placeholder —
       const fmtRev = v => {
         const n = Number(v || 0);

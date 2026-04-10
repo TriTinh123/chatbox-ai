@@ -6,7 +6,32 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth.models import User
 from django.http import JsonResponse, HttpResponse, StreamingHttpResponse
+from django.utils.html import escape as esc_html
 import json
+from django.core.cache import cache
+
+# ── Input limits ──────────────────────────────────────────────────────────
+MAX_MESSAGE_LEN  = 4000   # characters per chat message
+MAX_UPLOAD_MB    = 20     # MB per upload request
+
+
+def _rate_limit(request, key: str, max_calls: int = 20, period: int = 60) -> bool:
+    """
+    Simple IP-based rate limiter using Django cache.
+    Returns True when the request should be blocked.
+    Works with any CACHE backend (LocMem in dev, Redis in prod).
+    """
+    ip = (
+        request.META.get('HTTP_X_FORWARDED_FOR', '')
+        .split(',')[0].strip()
+        or request.META.get('REMOTE_ADDR', '0')
+    )
+    cache_key = f'rl:{key}:{ip}'
+    count = cache.get(cache_key, 0)
+    if count >= max_calls:
+        return True
+    cache.set(cache_key, count + 1, period)
+    return False
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.db import models, transaction
@@ -68,7 +93,7 @@ class ChatSessionViewSet(viewsets.ModelViewSet):
             chat_session=chat_session,
             role='user',
             text=user_text,
-            html=f'<div>{user_text}</div>'
+            html=f'<div>{esc_html(user_text)}</div>'
         )
         
         # Load sales data
@@ -143,14 +168,15 @@ class ChatSessionViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_429_TOO_MANY_REQUESTS)
         
         except Exception as e:
+            logger.exception('send_message error: %s', e)
             error_msg = Message.objects.create(
                 chat_session=chat_session,
                 role='assistant',
-                text=f'Error: {str(e)}',
-                html=f'<div style="color:#f87171">Error: {str(e)}</div>'
+                text='Đã xảy ra lỗi, vui lòng thử lại.',
+                html='<div style="color:#f87171">Đã xảy ra lỗi, vui lòng thử lại.</div>'
             )
             return Response({
-                'error': str(e),
+                'error': 'Internal server error',
                 'bot_message': MessageSerializer(error_msg).data
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
@@ -209,7 +235,8 @@ class ChatSessionViewSet(viewsets.ModelViewSet):
                 return ask_gemini(user_text, data_context)
         
         except Exception as e:
-            return f'<div style="color:#f87171">Lỗi: {str(e)}</div>'
+            logger.exception('_handle_intent error: %s', e)
+            return '<div style="color:#f87171">Đã xảy ra lỗi khi xử lý yêu cầu, vui lòng thử lại.</div>'
     
     @action(detail=True, methods=['post'])
     def rename(self, request, pk=None):
@@ -407,6 +434,18 @@ class PublicChatViewSet(viewsets.ViewSet):
 @require_http_methods(['POST'])
 def upload_file(request):
     """Upload and process one or more data files for sales analysis."""
+    # Rate-limit: max 10 uploads/min per IP
+    if _rate_limit(request, 'upload', max_calls=10, period=60):
+        return JsonResponse({'error': 'Tải lên quá nhiều lần. Vui lòng thử lại sau 1 phút.'}, status=429)
+
+    # File size guard
+    content_length = request.META.get('CONTENT_LENGTH', 0)
+    try:
+        if int(content_length) > MAX_UPLOAD_MB * 1024 * 1024:
+            return JsonResponse({'error': f'File quá lớn. Tối đa {MAX_UPLOAD_MB} MB.'}, status=413)
+    except (ValueError, TypeError):
+        pass
+
     try:
         files = request.FILES.getlist('files')
         if not files:
@@ -477,7 +516,8 @@ def upload_file(request):
         })
 
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        logger.exception('upload_file error: %s', e)
+        return JsonResponse({'error': 'Lỗi xử lý file. Vui lòng kiểm tra định dạng dữ liệu và thử lại.'}, status=500)
 
 
 # ══ CHART DATA ENDPOINT ══
@@ -571,8 +611,8 @@ def chart_data_view(request):
             return JsonResponse({'error': 'Unknown chart type'}, status=400)
 
     except Exception as e:
-        logger.error("chart_data_view error:\n%s", traceback.format_exc())
-        return JsonResponse({'error': str(e)}, status=500)
+        logger.exception('chart_data_view error: %s', e)
+        return JsonResponse({'error': 'Lỗi tải dữ liệu biểu đồ.'}, status=500)
 
 
 @csrf_exempt
@@ -596,8 +636,8 @@ def export_excel_view(request):
         response['Content-Disposition'] = 'attachment; filename="revenue_report.xlsx"'
         return response
     except Exception as e:
-        logger.error("export_excel_view error:\n%s", traceback.format_exc())
-        return JsonResponse({'error': str(e)}, status=500)
+        logger.exception('export_excel_view error: %s', e)
+        return JsonResponse({'error': 'Lỗi xuất file Excel.'}, status=500)
 
 
 # ══ STREAMING CHAT ENDPOINT ══
@@ -605,10 +645,20 @@ def export_excel_view(request):
 @require_http_methods(['POST'])
 def stream_chat_view(request):
     """Stream AI response via Server-Sent Events (text/event-stream)."""
+    # Rate-limit: max 30 messages/min per IP
+    if _rate_limit(request, 'stream', max_calls=30, period=60):
+        def _rate_event():
+            msg = '<div style="color:#f59e0b">⚠️ Bạn gửi quá nhiều tin nhắn. Vui lòng chờ 1 phút rồi thử lại.</div>'
+            yield f'data: {json.dumps(msg)}\n\n'
+            yield 'data: [DONE]\n\n'
+        r = StreamingHttpResponse(_rate_event(), content_type='text/event-stream; charset=utf-8')
+        r['Cache-Control'] = 'no-cache'
+        return r
+
     try:
         body = json.loads(request.body)
-        user_text = body.get('text', '').strip()
-        session_key = body.get('session_key', 'default')
+        user_text = body.get('text', '').strip()[:MAX_MESSAGE_LEN]
+        session_key = body.get('session_key', 'default')[:64]  # cap session key length
     except Exception:
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
@@ -628,7 +678,7 @@ def stream_chat_view(request):
         chat_session=chat_session,
         role='user',
         text=user_text,
-        html=f'<div>{user_text}</div>'
+        html=f'<div>{esc_html(user_text)}</div>'
     )
 
     # Build conversation history (exclude the message just saved)
@@ -667,7 +717,8 @@ def stream_chat_view(request):
             full_chunks.append(err_chunk)
             yield f"data: {json.dumps(err_chunk)}\n\n"
         except Exception as exc:
-            err_chunk = f'<div style="color:#f28b82">L\u1ed7i: {str(exc)[:100]}</div>'
+            logger.exception('stream_chat_view error: %s', exc)
+            err_chunk = '<div style="color:#f28b82">Đã xảy ra lỗi, vui lòng thử lại.</div>'
             full_chunks.append(err_chunk)
             yield f"data: {json.dumps(err_chunk)}\n\n"
         finally:
@@ -786,6 +837,6 @@ def summary_view(request):
             'worst_region_share_pct': share_pct(worst_region_revenue),
         })
     except Exception as e:
-        logger.error("summary_view error:\n%s", traceback.format_exc())
-        return JsonResponse({'error': str(e)}, status=500)
+        logger.exception('summary_view error: %s', e)
+        return JsonResponse({'error': 'Lỗi tải dữ liệu tóm tắt.'}, status=500)
 

@@ -26,10 +26,5 @@ CORS_ALLOW_ALL_ORIGINS = True
 # Email backend - print to console
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-# Disable password hashing for faster tests
-PASSWORD_HASHERS = [
-    'django.contrib.auth.hashers.MD5PasswordHasher',
-]
-
 # Logging override for dev
 LOGGING['root']['level'] = 'DEBUG'  # noqa

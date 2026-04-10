@@ -1,0 +1,27 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Revenue AI — docker-compose.yml  (Development)
+#  Usage: docker compose up
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # Override CMD to use Django dev server with hot-reload
+    command: python manage.py runserver 0.0.0.0:8000 --settings=config.settings.development
+    volumes:
+      # Mount source code so edits reflect instantly without rebuild
+      - .:/app
+      # Keep DB inside container volume (SQLite for dev)
+      - dev_db:/app/db
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.development
+    restart: unless-stopped
+
+volumes:
+  dev_db:

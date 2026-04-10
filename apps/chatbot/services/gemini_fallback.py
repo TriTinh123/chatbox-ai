@@ -103,7 +103,7 @@ NGUYÊN TẮC TRẢ LỜI:
 - Nếu user đề cập điều đã thảo luận → nhận ra và tiếp tục mạch hội thoại tự nhiên
 - Giọng điệu tự nhiên, mạch lạc — như đang nói chuyện trực tiếp với người thật
 - Dùng số liệu thực từ dữ liệu để chứng minh luận điểm
-- Trả lời bằng tiếng Việt
+- NGÔN NGỮ: Tự động phát hiện ngôn ngữ của tin nhắn người dùng và trả lời ĐÚNG ngôn ngữ đó. Hỏi tiếng Việt → trả lời tiếng Việt. Hỏi tiếng Anh → trả lời tiếng Anh. Hỏi ngôn ngữ khác → trả lời đúng ngôn ngữ đó.
 
 FORMAT OUTPUT:
 - HTML thuần (KHÔNG markdown, KHÔNG ```, KHÔNG **)
@@ -203,7 +203,7 @@ NGUYÊN TẮC TRẢ LỜI:
 - Nếu user hỏi "cái đó", "thêm chi tiết", "tại sao vậy" → tham chiếu ngữ cảnh trước đó
 - Giọng điệu tự nhiên, mạch lạc — như đang nói chuyện trực tiếp với người thật
 - Dùng số liệu thực từ dữ liệu để chứng minh luận điểm
-- Trả lời bằng tiếng Việt
+- NGÔN NGỮ: Tự động phát hiện ngôn ngữ của tin nhắn người dùng và trả lời ĐÚNG ngôn ngữ đó. Hỏi tiếng Việt → trả lời tiếng Việt. Hỏi tiếng Anh → trả lời tiếng Anh. Hỏi ngôn ngữ khác → trả lời đúng ngôn ngữ đó.
 
 FORMAT OUTPUT:
 - HTML thuần (KHÔNG markdown, KHÔNG ```, KHÔNG **)
@@ -228,17 +228,28 @@ FORMAT OUTPUT:
         parts=[types.Part(text=user_message)]
     ))
 
-    stream = client.models.generate_content_stream(
-        model="gemini-2.5-flash",
-        contents=contents,
-        config=types.GenerateContentConfig(
-            system_instruction=system_instruction,
-            temperature=0.7,
-        )
-    )
-    for chunk in stream:
-        if chunk.text:
-            yield chunk.text
+    for attempt in range(3):
+        try:
+            stream = client.models.generate_content_stream(
+                model="gemini-2.5-flash",
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                    temperature=0.7,
+                )
+            )
+            for chunk in stream:
+                if chunk.text:
+                    yield chunk.text
+            return  # success
+        except Exception as e:
+            err = str(e)
+            if "429" in err or "RESOURCE_EXHAUSTED" in err:
+                raise GeminiRateLimitError(err)
+            if ("503" in err or "UNAVAILABLE" in err) and attempt < 2:
+                time.sleep(2 ** attempt)  # 1s, 2s then retry
+                continue
+            raise
 
 
 def ask_gemini_file_mode(user_message: str, file_content: str, filename: str) -> str:

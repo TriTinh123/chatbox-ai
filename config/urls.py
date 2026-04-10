@@ -21,6 +21,9 @@ from django.conf.urls.static import static
 from apps.core.views import health_check, chatbot_index
 from apps.chatbot.views import upload_file, chart_data_view, summary_view, export_excel_view, stream_chat_view
 
+handler404 = 'apps.core.views.custom_404'
+handler500 = 'apps.core.views.custom_500'
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', chatbot_index, name='index'),
