@@ -721,16 +721,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Restore uploaded file banner after F5
-  try {
-    const savedFiles = JSON.parse(localStorage.getItem('revenueAI_lastFiles') || 'null');
-    if (savedFiles && savedFiles.length > 0) {
-      pendingFiles = savedFiles;
-      showFileBanner(pendingFiles);
-      loadSummaryBar();
-      setInterval(loadSummaryBar, 60000);
-    }
-  } catch (e) { localStorage.removeItem('revenueAI_lastFiles'); }
+  // DO NOT restore uploaded files after F5 — files are per-session only
+  // If user dismissed the banner, it should stay dismissed after page reload
+  // pendingFiles and the banner will only show if files are uploaded IN THIS SESSION
 
   // enable/disable send buttons + character counter
   chatInput().addEventListener('input',  () => { syncSendBtn(chatInput(), sendBtn()); autoResizeTextarea(chatInput()); updateCharCounter(chatInput(), 'charCount'); });
@@ -1253,10 +1246,9 @@ function handleFileUpload(input) {
         loadSummaryBar();
         setInterval(loadSummaryBar, 60000);
 
-        // Switch to chat mode and let user type their own question
+        // Switch to chat mode
         isWaiting = false;
         switchToChatMode();
-        setTimeout(() => chatInput2().focus(), 150);
       } else if (data.error) {
         if (!inChatMode) switchToChatMode();
         addMessage('bot', `<div style="color:#f28b82">⚠️ ${escHtml(data.error)}</div>`);
@@ -1350,6 +1342,7 @@ function clearFile() {
 // the summary bar or nav state (data is still uploaded in this session)
 function _dismissFileBanner() {
   pendingFiles = [];
+  localStorage.removeItem('revenueAI_lastFiles');  // Clear from storage so it doesn't re-appear on F5
   ['fileBanner','fileBanner2'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.remove('has-file');

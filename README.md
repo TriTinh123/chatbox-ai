@@ -2,7 +2,64 @@
 
 Dự án Django với cấu trúc chuẩn production. Tích hợp chatbot phân tích doanh thu từ dự án cũ `sales_boxchat`.
 
-## Features
+## 🚀 HƯỚNG DẪN CHẠY NHANH
+
+### Bước 1: Mở PowerShell
+
+```powershell
+cd d:\PythonProjects\chatbox-ai
+```
+
+### Bước 2: Cài đặt dependencies cần thiết
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install google-api-python-client
+```
+
+### Bước 3: Chạy database migrations
+
+```powershell
+.\.venv\Scripts\python.exe manage.py migrate
+```
+
+### Bước 4: Chạy Django server
+
+```powershell
+.\.venv\Scripts\python.exe manage.py runserver
+```
+
+**Bạn sẽ thấy:**
+```
+Starting development server at http://127.0.0.1:8000/
+Quit the server with CTRL-BREAK.
+```
+
+### Bước 5: Mở browser
+
+```
+http://127.0.0.1:8000/
+```
+
+### Bước 6: Dừng server (nếu cần)
+
+```
+Nhấn Ctrl+Break (trong PowerShell)
+```
+
+---
+
+## ⚙️ Cấu hình (.env)
+
+File `.env` đã có sẵn với:
+- ✅ `GEMINI_API_KEY` = Gemini API key
+- ✅ `SECRET_KEY` = Django secret key  
+- ✅ `DEBUG=True` = Chế độ development
+
+Không cần thay đổi gì để chạy locally.
+
+---
+
+## 📊 Features
 
 - ✅ **Cấu trúc production-ready**: Settings tách base/dev/prod
 - ✅ **Chatbot API**: RESTful API cho AI chatbot phân tích doanh thu

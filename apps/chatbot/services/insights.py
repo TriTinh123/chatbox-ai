@@ -191,6 +191,34 @@ def build_worst_product(items: list) -> str:
     )
 
 
+def build_top_products(items: list) -> str:
+    if not items:
+        return '<div class="tag">📦 Top 3 sản phẩm</div><div>Không có dữ liệu sản phẩm để hiển thị.</div>'
+
+    max_revenue = max(x["revenue"] for x in items) or 1
+    bars = ""
+    for item in items:
+        width = int(item["revenue"] / max_revenue * 100)
+        bars += (
+            f'<div class="bar-row">'
+            f'<span class="bar-label">{item["product"]}</span>'
+            f'<div class="bar-track">'
+            f'<div class="bar-fill" style="width:{width}%;background:#34d399"></div>'
+            f'</div>'
+            f'<span class="bar-pct">{item["revenue_label"]}</span>'
+            f'</div>'
+        )
+
+    chart_html = f'<div class="bar-chart">{bars}</div>'
+    top_names = ", ".join(item["product"] for item in items)
+    return (
+        f'<div class="tag">📦 Top 3 sản phẩm</div>'
+        + _section("📊", "Top 3 sản phẩm theo doanh thu", _expand_btn("📦 Top 3 sản phẩm", chart_html))
+        + _section("🔍", "Chi tiết", f'Sản phẩm có doanh thu cao nhất tháng gần nhất là <strong>{top_names}</strong>.')
+        + _section("💡", "Kế tiếp", 'Xem xét đẩy mạnh các sản phẩm hàng đầu này và mở rộng nguồn lực cho chúng.')
+    )
+
+
 def build_worst_channel(items: list) -> str:
     worst = items[0]
     bars  = "".join(_bar(x["channel"], x["chg_pct"], i == 0) for i, x in enumerate(items))

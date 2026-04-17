@@ -62,7 +62,7 @@ class Message(models.Model):
 class FileAttachment(models.Model):
     """Store uploaded CSV files."""
     chat_session = models.ForeignKey(ChatSession, on_delete=models.CASCADE, related_name='attachments')
-    file = models.FileField(upload_to='uploads/')
+    file = models.FileField(upload_to='uploads/', blank=True, null=True)
     filename = models.CharField(max_length=255)
     rows_count = models.IntegerField(null=True, blank=True)
     cols_count = models.IntegerField(null=True, blank=True)

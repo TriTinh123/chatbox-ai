@@ -46,6 +46,20 @@ INTENT_PATTERNS = [
         r"cải thiện",           r"cai thien",
         r"fix",
     ]),
+    ("top_products", [
+        r"top\s*3.*sản phẩm",
+        r"vẽ biểu đồ top\s*3.*sản phẩm",
+        r"top\s*3.*product",
+        r"top products",
+        r"top 3 sản phẩm",
+        r"top 3 product",
+        r"sản phẩm (nào|gì).*(bán\s*)?tốt",  # "Sản phẩm nào bán tốt"
+        r"san pham (nao|gi).*(ban\s*)?tot",   # Không dấu version
+        r"bán tốt nhất",
+        r"ban tot nhat",
+        r"sản phẩm tốt",
+        r"san pham tot",
+    ]),
     ("worst_product", [
         r"sản phẩm",            r"san pham",
         r"mặt hàng",            r"mat hang",

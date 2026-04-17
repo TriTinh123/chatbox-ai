@@ -72,6 +72,20 @@ class DataAnalyzer:
         ]
         return sorted(results, key=lambda x: x["chg_pct"])
 
+    def top_products(self, n: int = 3) -> list:
+        """Return top N products by revenue in the latest month."""
+        latest = self.df["month"].max()
+        current = self.df[self.df["month"] == latest].groupby("product")["revenue"].sum()
+        top = current.sort_values(ascending=False).head(n)
+        return [
+            {
+                "product": p,
+                "revenue": int(v),
+                "revenue_label": self._fmt_vnd(int(v)),
+            }
+            for p, v in top.items()
+        ]
+
     def worst_channel(self) -> list:
         """Rank sales channels by revenue change (worst first)."""
         cur, prev = self._two_months()
@@ -279,3 +293,117 @@ class DataAnalyzer:
             "ch_chg":        ch[0]["chg_pct"],
             "dominant":      reason["dominant"],
         }
+
+    # ────────────────────────────────────────────────────────────────────────
+    # NEW: get_sales_summary() - Simple, structured data for Gemini to rewrite
+    # ────────────────────────────────────────────────────────────────────────
+
+    def get_sales_summary(self) -> dict:
+        """
+        Calculate all key sales metrics at once.
+        
+        Pandas does ALL calculations. Gemini only rewrites to Vietnamese.
+        This prevents Gemini from guessing or calculating numbers.
+        
+        Returns:
+            dict with keys:
+            - current_month: Latest month (e.g., "2024-03")
+            - previous_month: Month before (e.g., "2024-02")
+            - current_revenue: Revenue in current month (as number)
+            - previous_revenue: Revenue in previous month (as number)
+            - revenue_change_pct: Revenue % change (can be negative)
+            - current_quantity: Total units sold this month
+            - previous_quantity: Total units sold last month
+            - quantity_change_pct: Quantity % change
+            - current_avg_price: Average unit price this month
+            - previous_avg_price: Average unit price last month
+            - price_change_pct: Price % change
+            - dominant_factor: "quantity", "price", or "both" (what drove revenue change)
+            - worst_product_name: Product with biggest revenue decline
+            - worst_product_change_pct: That product's revenue % change
+            - worst_channel_name: Channel with biggest revenue decline
+            - worst_channel_change_pct: That channel's revenue % change
+        """
+        cur, prev = self._two_months()
+        
+        # ── REVENUE METRICS ──
+        cur_revenue = self.df[self.df["month"] == cur]["revenue"].sum()
+        prev_revenue = self.df[self.df["month"] == prev]["revenue"].sum()
+        revenue_change_pct = round(self._pct(cur_revenue, prev_revenue), 1)
+        
+        # ── QUANTITY METRICS ──
+        cur_quantity = int(self.df[self.df["month"] == cur]["quantity"].sum())
+        prev_quantity = int(self.df[self.df["month"] == prev]["quantity"].sum())
+        quantity_change_pct = round(self._pct(cur_quantity, prev_quantity), 1)
+        
+        # ── PRICE METRICS ──
+        cur_avg_price = self.df[self.df["month"] == cur]["unit_price"].mean()
+        prev_avg_price = self.df[self.df["month"] == prev]["unit_price"].mean()
+        price_change_pct = round(self._pct(cur_avg_price, prev_avg_price), 1)
+        
+        # ── DETERMINE DOMINANT FACTOR ──
+        if abs(quantity_change_pct) > abs(price_change_pct):
+            dominant_factor = "quantity"
+        elif abs(price_change_pct) > abs(quantity_change_pct):
+            dominant_factor = "price"
+        else:
+            dominant_factor = "both"
+        
+        # ── WORST PRODUCT ──
+        worst_prods = self.worst_product()
+        worst_product_name = worst_prods[0]["product"] if worst_prods else "N/A"
+        worst_product_change_pct = worst_prods[0]["chg_pct"] if worst_prods else 0
+        
+        # ── WORST CHANNEL ──
+        worst_chs = self.worst_channel()
+        worst_channel_name = worst_chs[0]["channel"] if worst_chs else "N/A"
+        worst_channel_change_pct = worst_chs[0]["chg_pct"] if worst_chs else 0
+        
+        # ── RETURN AS SIMPLE DICTIONARY ──
+        return {
+            "current_month": str(cur),
+            "previous_month": str(prev),
+            "current_revenue": round(cur_revenue, 0),
+            "previous_revenue": round(prev_revenue, 0),
+            "revenue_change_pct": revenue_change_pct,
+            "current_quantity": cur_quantity,
+            "previous_quantity": prev_quantity,
+            "quantity_change_pct": quantity_change_pct,
+            "current_avg_price": round(cur_avg_price, 2),
+            "previous_avg_price": round(prev_avg_price, 2),
+            "price_change_pct": price_change_pct,
+            "dominant_factor": dominant_factor,
+            "worst_product_name": worst_product_name,
+            "worst_product_change_pct": worst_product_change_pct,
+            "worst_channel_name": worst_channel_name,
+            "worst_channel_change_pct": worst_channel_change_pct,
+        }
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# CONVENIENCE FUNCTION - Quick analysis
+# ════════════════════════════════════════════════════════════════════════════
+
+def analyze_data(csv_path='data/sales.csv'):
+    """
+    Quick convenience function to analyze sales data.
+    
+    Usage:
+        analysis_data = analyze_data('data/sales.csv')
+        print(analysis_data)
+    
+    Returns:
+        dict with all key metrics (revenue, quantity, price, worst products/channels)
+    """
+    analyzer = DataAnalyzer(csv_path=csv_path)
+    return analyzer.get_sales_summary()
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Example usage / Testing
+# ════════════════════════════════════════════════════════════════════════════
+
+if __name__ == '__main__':
+    # Test the analyze_data function
+    analysis_data = analyze_data()
+    print(analysis_data)
