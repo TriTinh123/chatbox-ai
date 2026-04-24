@@ -6,7 +6,7 @@
 import random
 
 
-_GREETINGS = [
+_GREETINGS_VI = [
     (
         '<div style="line-height:1.8; font-size:14px;">'
         'Chào bạn! 👋 Tôi là <strong>Revenue AI</strong>, chuyên gia phân tích doanh thu. '
@@ -14,7 +14,7 @@ _GREETINGS = [
         '<strong>📊 Phân tích chi tiết:</strong> Tại sao doanh thu giảm? Sản phẩm nào bị ảnh hưởng?<br>'
         '<strong>📈 Dự báo:</strong> Doanh thu tháng tới sẽ ra sao?<br>'
         '<strong>🛠️ Khuyến nghị:</strong> Nên làm gì để khắc phục?<br><br>'
-        'Hãy <strong>upload file CSV</strong> để bắt đầu phân tích, hoặc hỏi tôi bất cứ điều gì! 💡'
+        'Hãy hỏi tôi bất cứ điều gì về doanh thu! 💡'
         '</div>'
     ),
     (
@@ -24,45 +24,42 @@ _GREETINGS = [
         '<strong>🔍 Tìm nguyên nhân</strong> doanh thu sụt giảm?<br>'
         '<strong>📦 Xem sản phẩm nào</strong> đang kéo lùi hiệu quả?<br>'
         '<strong>📅 Dự báo xu hướng</strong> tháng tới?<br><br>'
-        'Upload file CSV của bạn lên và để tôi phân tích ngay! 🚀'
+        'Cứ hỏi tôi thôi! 🚀'
+        '</div>'
+    ),
+]
+
+_GREETINGS_EN = [
+    (
+        '<div style="line-height:1.8; font-size:14px;">'
+        'Hello! 👋 I\'m <strong>Revenue AI</strong>, your revenue analysis expert. I can help you:<br><br>'
+        '<strong>📊 Detailed Analysis:</strong> Why is revenue declining? Which products are affected?<br>'
+        '<strong>📈 Forecasting:</strong> How will revenue look next month?<br>'
+        '<strong>🛠️ Recommendations:</strong> What should you do to improve?<br><br>'
+        'Ask me anything about revenue! 💡'
         '</div>'
     ),
     (
         '<div style="line-height:1.8; font-size:14px;">'
-        'Hey! 😊 Tôi là <strong>Revenue AI</strong>, sẵn sàng giúp bạn hiểu rõ hơn về doanh thu kinh doanh.<br><br>'
-        'Một vài thứ tôi làm được:<br>'
-        '&bull; Phân tích sản phẩm/kênh bán hàng hiệu quả nhất<br>'
-        '&bull; Chỉ ra nguyên nhân doanh thu giảm<br>'
-        '&bull; Đề xuất chiến lược cải thiện<br><br>'
-        'Bắt đầu bằng cách <strong>upload file CSV</strong> hoặc đặt câu hỏi nhé! 💬'
-        '</div>'
-    ),
-    (
-        '<div style="line-height:1.8; font-size:14px;">'
-        'Chào mừng bạn! 🎯 Tôi là <strong>Revenue AI</strong> — biến dữ liệu doanh thu thành insight hành động được.<br><br>'
-        'Hỏi tôi bất cứ điều gì như:<br>'
-        '💬 <em>"Tháng nào doanh thu cao nhất?"</em><br>'
-        '💬 <em>"Sản phẩm nào nên tập trung đẩy mạnh?"</em><br>'
-        '💬 <em>"Kênh bán hàng nào đang kém hiệu quả?"</em><br><br>'
-        'Hoặc <strong>upload file CSV</strong> để tôi phân tích toàn diện! 📂'
-        '</div>'
-    ),
-    (
-        '<div style="line-height:1.8; font-size:14px;">'
-        'Xin chào! 💼 Tôi là <strong>Revenue AI</strong>, đồng hành cùng bạn trong việc ra quyết định dựa trên dữ liệu.<br><br>'
-        'Tôi có thể phân tích:<br>'
-        '<strong>📊 Doanh thu</strong> theo thời gian, sản phẩm, kênh bán<br>'
-        '<strong>⚠️ Rủi ro</strong> và điểm yếu trong kinh doanh<br>'
-        '<strong>✅ Cơ hội</strong> tăng trưởng tiềm năng<br><br>'
-        'Upload file CSV và bắt đầu khám phá ngay! 🔎'
+        'Hi there! 🌟 Nice to meet you. I\'m <strong>Revenue AI</strong> — your intelligent revenue assistant.<br><br>'
+        'What would you like to explore today?<br>'
+        '<strong>🔍 Find the root causes</strong> of revenue decline?<br>'
+        '<strong>📦 See which products</strong> are underperforming?<br>'
+        '<strong>📅 Forecast trends</strong> for next month?<br><br>'
+        'Just ask me! 🚀'
         '</div>'
     ),
 ]
 
 
-def build_greeting() -> str:
-    """Random greeting response each time."""
-    return random.choice(_GREETINGS)
+def build_greeting(language: str = 'vi') -> str:
+    """Random greeting response based on language.
+    
+    Args:
+        language: 'vi' for Vietnamese, 'en' for English
+    """
+    greetings = _GREETINGS_EN if language == 'en' else _GREETINGS_VI
+    return random.choice(greetings)
 
 
 def _expand_btn(title: str, chart_html: str) -> str:

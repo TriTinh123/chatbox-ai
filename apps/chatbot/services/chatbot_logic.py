@@ -15,6 +15,7 @@ INTENT_PATTERNS = [
         r"^(chào|chao) (bạn|ban)",
         r"^xin$",
         r"^chao$",
+        r"^(hello|hi|hey)$",  # FIXED: Added grouping to prevent "hi" in "this" from matching
     ]),
     ("detailed_analysis", [
         r"tại sao.*doanh thu",   r"tai sao.*doanh thu",
@@ -24,6 +25,22 @@ INTENT_PATTERNS = [
         r"phân tích.*tại sao",   r"phan tich.*tai sao",
         r"phân tích.*lí do",     r"phan tich.*li do",
         r"phân tích.*nguyên nhân", r"phan tich.*nguyen nhan",
+        # English patterns - expanded for better coverage
+        r"why.*revenue.*declin",
+        r"reason.*revenue.*declin",
+        r"reasons.*revenue.*declin",  # Added plural
+        r"analyze.*reason.*declin",
+        r"why.*revenue.*drop",
+        r"cause.*revenue.*declin",
+        r"why.*sales.*declin",
+        r"analyze.*why.*revenue",
+        r"what.*cause.*revenue.*declin",
+        r"why.*revenue.*decrease",    # Added "decrease" without "d"
+        r"reason.*revenue.*decrease", # Added "decrease" without "d"
+        r"reasons.*why.*revenue",     # Added "reasons why revenue"
+        r"why.*revenue.*decreased",   # Added past tense
+        r"reason.*revenue.*decreased", # Added past tense
+        r"what.*reason.*revenue.*declin", # More flexible word order
     ]),
     ("forecast", [
         r"dự báo",              r"du bao",
@@ -35,6 +52,9 @@ INTENT_PATTERNS = [
         r"tương lai",           r"tuong lai",
         r"xu hướng",            r"xu huong",
         r"linear regression",
+        r"next month.*revenue",
+        r"trend",
+        r"projection",
     ]),
     ("recommendation", [
         r"(nên|cần) làm gì",   r"nen lam gi",
@@ -45,6 +65,11 @@ INTENT_PATTERNS = [
         r"recommendation",
         r"cải thiện",           r"cai thien",
         r"fix",
+        r"what should i do",
+        r"how to improve",
+        r"improve.*revenue",
+        r"solution",
+        r"should.*do",
     ]),
     ("top_products", [
         r"top\s*3.*sản phẩm",
@@ -59,6 +84,13 @@ INTENT_PATTERNS = [
         r"ban tot nhat",
         r"sản phẩm tốt",
         r"san pham tot",
+        r"best selling",
+        r"top selling",
+        r"most popular",
+        r"best.*product",
+        r"products.*best",
+        r"which.*product.*best",
+        r"what.*product.*best",
     ]),
     ("worst_product", [
         r"sản phẩm",            r"san pham",
@@ -66,6 +98,13 @@ INTENT_PATTERNS = [
         r"nhóm hàng",           r"nhom hang",
         r"hàng (nào|gì)",       r"hang nao",
         r"product",
+        r"worst.*product",
+        r"declined.*product",
+        r"product.*decline",
+        r"product.*decrease",
+        r"product.*drop",
+        r"product.*failed",
+        r"product.*struggle",
     ]),
     ("worst_channel", [
         r"kênh",                r"kenh",
@@ -74,6 +113,12 @@ INTENT_PATTERNS = [
         r"offline",
         r"đối tác",             r"doi tac",
         r"social",
+        r"worst.*channel",
+        r"channel.*decline",
+        r"channel.*decrease",
+        r"channel.*drop",
+        r"channel.*failed",
+        r"channel.*struggle",
     ]),
     ("quantity_or_price", [
         r"số lượng",            r"so luong",
@@ -82,6 +127,10 @@ INTENT_PATTERNS = [
         r"price",
         r"nguyên nhân",         r"nguyen nhan",
         r"lý do",               r"ly do",
+        r"is.*due to.*quantity",
+        r"is.*due to.*price",
+        r"price change",
+        r"volume.*decrease",
         r"vì sao",              r"vi sao",
         r"tại sao",             r"tai sao",
         r"do (đâu|gì)",         r"do dau",
@@ -93,10 +142,17 @@ INTENT_PATTERNS = [
         r"hcm|hồ chí minh|ho chi minh",
         r"hà nội|ha noi",
         r"đà nẵng|da nang",
+        r"worst.*region",
+        r"which.*region",
         r"miền (nam|bắc|trung)|mien (nam|bac|trung)",
         r"địa (bàn|phương)|dia ban",
     ]),
     ("overview_revenue", [
+        r"total revenue",
+        r"this month.*revenue",
+        r"month.*revenue",
+        r"how much.*decrease",
+        r"summary",
         r"doanh thu",
         r"tổng quan",           r"tong quan",
         r"tháng (này|trước|gần nhất)|thang nay",
@@ -104,6 +160,18 @@ INTENT_PATTERNS = [
         r"tăng bao nhiêu",      r"tang bao nhieu",
         r"overview",
         r"tổng (doanh|hợp)",
+        # English patterns for basic revenue questions
+        r"revenue.*decrease",
+        r"revenue.*drop",
+        r"revenue.*decline",
+        r"sales.*decrease",
+        r"sales.*drop",
+        r"sales.*decline",
+        r"how much.*revenue",
+        r"revenue.*this month",
+        r"revenue.*last month",
+        r"revenue.*change",
+        r"revenue.*comparison",
     ]),
 ]
 

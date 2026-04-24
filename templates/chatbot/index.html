@@ -40,60 +40,60 @@
     <div class="sidebar-section">
       <button class="new-chat-btn" data-action="new-chat">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Phân tích mới
+        <span data-i18n="newAnalysis">Phân tích mới</span>
       </button>
     </div>
 
     <!-- Nav -->
     <div class="sidebar-group">
-      <div class="sidebar-group-label">Phân tích nhanh</div>
+        <div class="sidebar-group-label" data-i18n="quickAnalysis">Phân tích nhanh</div>
       <nav class="sidebar-nav">
         <button class="sidebar-item" data-action="open-chart" data-chart-type="overview">
           <div class="sidebar-item-icon teal">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
           </div>
-          <span>Tổng quan</span>
+          <span data-i18n="overview">Tổng quan</span>
         </button>
         <button class="sidebar-item" data-action="open-chart" data-chart-type="decline">
           <div class="sidebar-item-icon amber">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
           </div>
-          <span>Nguyên nhân giảm</span>
+          <span data-i18n="decline">Nguyên nhân giảm</span>
           <span class="sidebar-badge">!</span>
         </button>
         <button class="sidebar-item" data-action="open-chart" data-chart-type="product">
           <div class="sidebar-item-icon blue">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>
           </div>
-          <span>Sản phẩm</span>
+          <span data-i18n="product">Sản phẩm</span>
         </button>
         <button class="sidebar-item" data-action="open-chart" data-chart-type="region">
           <div class="sidebar-item-icon purple">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 10-16 0c0 3 2.7 6.9 8 11.7z"/></svg>
           </div>
-          <span>Theo khu vực</span>
+          <span data-i18n="region">Theo khu vực</span>
         </button>
         <button class="sidebar-item" data-action="open-chart" data-chart-type="forecast">
           <div class="sidebar-item-icon teal">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           </div>
-          <span>Dự báo</span>
+          <span data-i18n="forecast">Dự báo</span>
         </button>
         <button class="sidebar-item" data-action="open-chart" data-chart-type="compare">
           <div class="sidebar-item-icon blue">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="9" height="18" rx="1"/><rect x="13" y="3" width="9" height="18" rx="1"/></svg>
           </div>
-          <span>So sánh kỳ</span>
-          <span class="sidebar-badge new-badge">Mới</span>
+          <span data-i18n="compare">So sánh kỳ</span>
+            <span class="sb-badge new-badge" data-i18n="new">Mới</span>
         </button>
       </nav>
     </div>
 
     <!-- History -->
     <div class="sidebar-group" style="flex:1">
-      <div class="sidebar-group-label">Lịch sử</div>
+      <div class="sidebar-group-label" data-i18n="history">Lịch sử</div>
       <nav class="sidebar-nav" id="recentChats">
-        <div class="sidebar-empty">Chưa có phân tích nào</div>
+        <div class="sidebar-empty" data-i18n="noAnalysis">Chưa có phân tích nào</div>
       </nav>
     </div>
 
@@ -110,79 +110,97 @@
         <div class="settings-popup" id="settingsPopup">
           <button class="settings-popup-item" data-action="open-activity-log">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span>Hoạt động</span>
+            <span data-i18n="activity">Hoạt động</span>
           </button>
           <button class="settings-popup-item" data-action="open-data-sources">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-            <span>Nguồn dữ liệu</span>
+            <span data-i18n="dataSources">Nguồn dữ liệu</span>
           </button>
           <button class="settings-popup-item" data-action="open-export-settings">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            <span>Xuất báo cáo</span>
-            <span class="settings-popup-badge">Mới</span>
+            <span data-i18n="exportReport">Xuất báo cáo</span>
+            <span class="settings-popup-badge" data-i18n="new">Mới</span>
           </button>
           <div class="settings-popup-divider"></div>
           <div class="settings-popup-submenu-wrap">
             <button class="settings-popup-item has-sub" id="themeToggleBtn" data-action="toggle-theme-menu">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-              <span>Giao diện</span>
+              <span data-i18n="interface">Giao diện</span>
               <svg class="sub-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
             <div class="settings-sub-menu" id="themeSubMenu">
               <button class="settings-popup-item" data-action="set-theme" data-theme="light">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg>
-                <span>Sáng</span>
+                <span data-i18n="light">Sáng</span>
               </button>
               <button class="settings-popup-item" data-action="set-theme" data-theme="dark">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
-                <span>Tối</span>
+                <span data-i18n="dark">Tối</span>
               </button>
               <button class="settings-popup-item" data-action="set-theme" data-theme="system">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                <span>Theo hệ thống</span>
+                <span data-i18n="system">Theo hệ thống</span>
+              </button>
+            </div>
+          </div>
+          <div class="settings-popup-divider"></div>
+          <div class="settings-popup-submenu-wrap">
+            <button class="settings-popup-item has-sub" id="languageToggleBtn" data-action="toggle-language-menu">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              <span data-i18n="language">Ngôn ngữ / Language</span>
+              <svg class="sub-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+            <div class="settings-sub-menu" id="languageSubMenu">
+              <button class="settings-popup-item" data-action="set-language" data-language="vi">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                <span>Tiếng Việt</span>
+              </button>
+              <button class="settings-popup-item" data-action="set-language" data-language="en">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                <span>English</span>
               </button>
             </div>
           </div>
           <button class="settings-popup-item" data-action="clear-history">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
-            <span>Xóa lịch sử</span>
+            <span data-i18n="clearHistory">Xóa lịch sử</span>
           </button>
           <div class="settings-popup-divider"></div>
           <div class="settings-popup-submenu-wrap">
             <button class="settings-popup-item has-sub" data-action="toggle-help-menu">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              <span>Trợ giúp</span>
+              <span data-i18n="help">Trợ giúp</span>
               <svg class="sub-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
             </button>
             <div class="settings-sub-menu" id="helpSubMenu">
               <button class="settings-popup-item" data-action="show-shortcuts-help">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3l-4 4-4-4"/></svg>
-                <span>Phím tắt</span>
+                <span data-i18n="shortcuts">Phím tắt</span>
               </button>
               <button class="settings-popup-item" data-action="show-format-help">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                <span>Định dạng file hỗ trợ</span>
+                <span data-i18n="supportedFormats">Định dạng file hỗ trợ</span>
               </button>
               <button class="settings-popup-item" data-action="show-about">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <span>Về Revenue AI</span>
+                <span data-i18n="aboutRevenue">Về Revenue AI</span>
               </button>
             </div>
           </div>
           <button class="settings-popup-item" data-action="send-feedback">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-            <span>Gửi phản hồi</span>
+            <span data-i18n="sendFeedback">Gửi phản hồi</span>
           </button>
           <div class="settings-popup-divider"></div>
           <button class="settings-popup-item" data-action="handle-logout" style="color: #ef4444;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
-            <span>Đăng xuất</span>
+            <span data-i18n="logout">Đăng xuất</span>
           </button>
         </div>
 
         <button class="settings-trigger-btn" id="settingsTriggerBtn" data-action="toggle-settings-menu">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-          <span>Cài đặt &amp; Trợ giúp</span>
+          <span data-i18n="settingsHelp">Cài đặt &amp; Trợ giúp</span>
         </button>
       </div>
     </div>
@@ -223,77 +241,77 @@
       <div class="sb-inner">
         <div class="sb-label">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-          Live Data
+          <span data-i18n="liveData">Live Data</span>
         </div>
         <div class="sb-cards">
           <div class="sb-card">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
-            <span class="sb-key">Tổng doanh thu</span>
+            <span class="sb-key" data-i18n="totalRevenue">Tổng doanh thu</span>
             <span class="sb-val" id="sbTotalRevValue">—</span>
           </div>
           <div class="sb-card">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-            <span class="sb-key">Tăng/Giảm MoM</span>
+            <span class="sb-key" data-i18n="incDecMoM">Tăng/Giảm MoM</span>
             <span class="sb-val" id="sbRevValue">—</span>
           </div>
           <div class="sb-card">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
-            <span class="sb-key">Doanh thu tháng này</span>
+            <span class="sb-key" data-i18n="currentMonthRevenue">Doanh thu tháng này</span>
             <span class="sb-val" id="sbCurrentMonthValue">—</span>
           </div>
           <div class="sb-card">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v4"/><path d="M16 2v4"/><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/></svg>
-            <span class="sb-key">Doanh thu tháng trước</span>
+            <span class="sb-key" data-i18n="prevMonthRevenue">Doanh thu tháng trước</span>
             <span class="sb-val" id="sbPrevMonthValue">—</span>
           </div>
           <div class="sb-card">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="20" x2="12" y2="4"/><polyline points="18 10 12 4 6 10"/></svg>
-            <span class="sb-key">Chênh lệch tháng</span>
+            <span class="sb-key" data-i18n="monthlyDiff">Chênh lệch tháng</span>
             <span class="sb-val" id="sbDeltaMonthValue">—</span>
           </div>
           <div class="sb-card">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
-            <span class="sb-key">Giá trị TB/đơn</span>
+            <span class="sb-key" data-i18n="avgOrderValue">Giá trị TB/đơn</span>
             <span class="sb-val" id="sbAvgOrderValue">—</span>
           </div>
           <div class="sb-card">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-            <span class="sb-key">Tổng bản ghi</span>
+            <span class="sb-key" data-i18n="totalRecords">Tổng bản ghi</span>
             <span class="sb-val" id="sbTotalRowsValue">—</span>
           </div>
           <div class="sb-card">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            <span class="sb-key">SP tốt nhất</span>
+            <span class="sb-key" data-i18n="bestProduct">SP tốt nhất</span>
             <span class="sb-val" id="sbBestProductValue">—</span>
           </div>
           <div class="sb-card">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>
-            <span class="sb-key">SP yếu nhất</span>
+            <span class="sb-key" data-i18n="worstProduct">SP yếu nhất</span>
             <span class="sb-val" id="sbProductValue">—</span>
           </div>
           <div class="sb-card">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
-            <span class="sb-key">Kênh tốt nhất</span>
+            <span class="sb-key" data-i18n="bestChannel">Kênh tốt nhất</span>
             <span class="sb-val" id="sbBestChannelValue">—</span>
           </div>
           <div class="sb-card">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            <span class="sb-key">Kênh yếu nhất</span>
+            <span class="sb-key" data-i18n="worstChannel">Kênh yếu nhất</span>
             <span class="sb-val" id="sbChannelValue">—</span>
           </div>
           <div class="sb-card">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            <span class="sb-key">Khu vực tốt nhất</span>
+            <span class="sb-key" data-i18n="bestRegion">Khu vực tốt nhất</span>
             <span class="sb-val" id="sbBestRegionValue">—</span>
           </div>
           <div class="sb-card">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4.5 8-12a8 8 0 10-16 0c0 7.5 8 12 8 12z"/><line x1="8" y1="10" x2="16" y2="10"/></svg>
-            <span class="sb-key">Khu vực yếu nhất</span>
+            <span class="sb-key" data-i18n="worstRegion">Khu vực yếu nhất</span>
             <span class="sb-val" id="sbWorstRegionValue">—</span>
           </div>
           <div class="sb-card">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span class="sb-key">Cập nhật</span>
+            <span class="sb-key" data-i18n="updated">Cập nhật</span>
             <span class="sb-val" id="sbUpdatedAt">—</span>
           </div>
         </div>

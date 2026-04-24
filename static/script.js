@@ -2,6 +2,136 @@
   Revenue AI — script.js
   ═══════════════════════════════════════════ */
 
+// ── Language System ────────────────────────
+let currentLang = localStorage.getItem('lang') || 'vi';
+
+const translations = {
+  vi: {
+    'newAnalysis': 'Phân tích mới',
+    'overview': 'Tổng quan',
+    'decline': 'Nguyên nhân giảm',
+    'product': 'Sản phẩm',
+    'region': 'Theo khu vực',
+    'forecast': 'Dự báo',
+    'compare': 'So sánh kỳ',
+    'history': 'Lịch sử',
+    'noAnalysis': 'Chưa có phân tích nào',
+    'quickAnalysis': 'Phân tích nhanh',
+    'activity': 'Hoạt động',
+    'dataSources': 'Nguồn dữ liệu',
+    'exportReport': 'Xuất báo cáo',
+    'interface': 'Giao diện',
+    'light': 'Sáng',
+    'dark': 'Tối',
+    'system': 'Theo hệ thống',
+    'clearHistory': 'Xóa lịch sử',
+    'help': 'Trợ giúp',
+    'shortcuts': 'Phím tắt',
+    'supportedFormats': 'Định dạng file hỗ trợ',
+    'aboutRevenue': 'Về Revenue AI',
+    'sendFeedback': 'Gửi phản hồi',
+    'logout': 'Đăng xuất',
+    'settingsHelp': 'Cài đặt & Trợ giúp',
+    'uploadFiles': 'Tải lên tệp',
+    'greeting': 'Chào bạn! Tôi là Revenue AI',
+    'successUpload': 'Đã tải',
+    'errorUpload': 'Lỗi tải file',
+    'processing': 'Đang xử lý...',
+    'sendMessage': 'Gửi tin nhắn',
+    'searchChats': 'Tìm kiếm',
+    'language': 'Ngôn ngữ',
+    'english': 'English',
+    'vietnamese': 'Tiếng Việt',
+    'new': 'Mới',
+    'liveData': 'Live Data',
+    'totalRevenue': 'Tổng doanh thu',
+    'incDecMoM': 'Tăng/Giảm MoM',
+    'currentMonthRevenue': 'Doanh thu tháng này',
+    'prevMonthRevenue': 'Doanh thu tháng trước',
+    'monthlyDiff': 'Chênh lệch tháng',
+    'avgOrderValue': 'Giá trị TB/đơn',
+    'totalRecords': 'Tổng bản ghi',
+    'bestProduct': 'SP tốt nhất',
+    'worstProduct': 'SP yếu nhất',
+    'bestChannel': 'Kênh tốt nhất',
+    'worstChannel': 'Kênh yếu nhất',
+    'bestRegion': 'Khu vực tốt nhất',
+    'worstRegion': 'Khu vực yếu nhất',
+    'updated': 'Cập nhật'
+  },
+  en: {
+    'newAnalysis': 'New Analysis',
+    'overview': 'Overview',
+    'decline': 'Decline Reasons',
+    'product': 'Products',
+    'region': 'By Region',
+    'forecast': 'Forecast',
+    'compare': 'Compare Periods',
+    'history': 'History',
+    'noAnalysis': 'No analysis yet',
+    'quickAnalysis': 'Quick Analysis',
+    'activity': 'Activity',
+    'dataSources': 'Data Sources',
+    'exportReport': 'Export Report',
+    'interface': 'Theme',
+    'light': 'Light',
+    'dark': 'Dark',
+    'system': 'System',
+    'clearHistory': 'Clear History',
+    'help': 'Help',
+    'shortcuts': 'Shortcuts',
+    'supportedFormats': 'Supported Formats',
+    'aboutRevenue': 'About Revenue AI',
+    'sendFeedback': 'Send Feedback',
+    'logout': 'Logout',
+    'settingsHelp': 'Settings & Help',
+    'uploadFiles': 'Upload Files',
+    'greeting': 'Hello! I am Revenue AI',
+    'successUpload': 'Uploaded',
+    'errorUpload': 'Upload error',
+    'processing': 'Processing...',
+    'sendMessage': 'Send message',
+    'searchChats': 'Search',
+    'language': 'Language',
+    'english': 'English',
+    'vietnamese': 'Tiếng Việt',
+    'new': 'New',
+    'liveData': 'Live Data',
+    'totalRevenue': 'Total Revenue',
+    'incDecMoM': 'Increase/Decrease MoM',
+    'currentMonthRevenue': 'Current Month Revenue',
+    'prevMonthRevenue': 'Previous Month Revenue',
+    'monthlyDiff': 'Monthly Difference',
+    'avgOrderValue': 'Average Order Value',
+    'totalRecords': 'Total Records',
+    'bestProduct': 'Best Product',
+    'worstProduct': 'Worst Product',
+    'bestChannel': 'Best Channel',
+    'worstChannel': 'Worst Channel',
+    'bestRegion': 'Best Region',
+    'worstRegion': 'Worst Region',
+    'updated': 'Updated'
+  }
+};
+
+function t(key) {
+  return translations[currentLang][key] || key;
+}
+
+function setLanguage(lang) {
+  currentLang = lang;
+  localStorage.setItem('lang', lang);
+  // Update all translated elements
+  updateAllTranslations();
+}
+
+function updateAllTranslations() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    el.textContent = t(key);
+  });
+}
+
 // ── Authentication ─────────────────────────
 function checkAuthentication() {
   // No authentication required - app is public
@@ -587,6 +717,13 @@ function handleDelegatedClick(e) {
     case 'set-theme':
       setTheme(theme);
       break;
+    case 'toggle-language-menu':
+      toggleLanguageMenu();
+      break;
+    case 'set-language':
+      const lang = e.target.closest('[data-language]')?.getAttribute('data-language');
+      if (lang) setLanguage(lang);
+      break;
     case 'clear-history':
       clearAllHistory();
       break;
@@ -702,6 +839,7 @@ function handleDelegatedKeydown(e) {
 
 // ── Init ───────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  updateAllTranslations(); // Initialize translations
   setTodayDate();
   startClock();
   _syncNavButtons(false);
@@ -933,7 +1071,7 @@ function _fetchChat(text, attempt) {
   fetch(streamUrl, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ text, session_key: currentChatId || 'default' })
+    body: JSON.stringify({ text, session_key: currentChatId || 'default', language: currentLang })
   })
   .then(async r => {
     if (r.status === 401) {
@@ -1296,7 +1434,9 @@ function updateUploadProgress(pct) {
 }
 function hideUploadProgress() {
   const el = document.getElementById('_uploadProgress');
-  if (el) { el.classList.remove('show'); }
+  if (el) { 
+    el.remove();
+  }
 }
 
 function _syncNavButtons(hasFile) {
@@ -1783,14 +1923,27 @@ function closeSettingsMenu() {
 function toggleThemeMenu() {
   const m = document.getElementById('themeSubMenu');
   const h = document.getElementById('helpSubMenu');
+  const l = document.getElementById('languageSubMenu');
   h?.classList.remove('open');
+  l?.classList.remove('open');
   m?.classList.toggle('open');
+}
+
+function toggleLanguageMenu() {
+  const l = document.getElementById('languageSubMenu');
+  const m = document.getElementById('themeSubMenu');
+  const h = document.getElementById('helpSubMenu');
+  m?.classList.remove('open');
+  h?.classList.remove('open');
+  l?.classList.toggle('open');
 }
 
 function toggleHelpMenu() {
   const h = document.getElementById('helpSubMenu');
   const m = document.getElementById('themeSubMenu');
+  const l = document.getElementById('languageSubMenu');
   m?.classList.remove('open');
+  l?.classList.remove('open');
   h?.classList.toggle('open');
 }
 

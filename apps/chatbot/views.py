@@ -58,7 +58,7 @@ from .services.insights import (
 )
 from .services.recommendations import build_recommendation
 from .services.gemini_fallback import ask_gemini, ask_gemini_stream, ask_groq, ask_groq_general, ask_groq_stream, ask_groq_stream_general, GeminiRateLimitError, GroqRateLimitError
-from .services.prompt_template import build_system_prompt, build_data_context, build_user_prompt
+from .services.prompt_template import build_system_prompt, build_data_context, build_user_prompt, detect_language
 
 
 class ChatSessionViewSet(viewsets.ModelViewSet):
@@ -91,6 +91,9 @@ class ChatSessionViewSet(viewsets.ModelViewSet):
         user_text = request.data.get('text', '').strip()
         if not user_text:
             return Response({'error': 'Empty message'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Auto-detect language from user's message
+        language = detect_language(user_text)
         
         # Save user message
         user_message = Message.objects.create(
@@ -131,8 +134,16 @@ class ChatSessionViewSet(viewsets.ModelViewSet):
             
             intent = detect_intent(user_text, last_intent)
             
-            # Route to appropriate analysis with chat_session for history
-            response_html = self._handle_intent(intent, analyzer, user_text, chat_session)
+            # Detect language from user's message
+            language = detect_language(user_text)
+            
+            # Route to appropriate handler based on intent
+            if intent == 'greeting':
+                # Handle greeting separately - don't need data analysis
+                response_html = build_greeting(language)
+            else:
+                # Route to analysis handler
+                response_html = self._handle_intent(intent, analyzer, user_text, chat_session, language)
             
             # Save bot response
             bot_message = Message.objects.create(
@@ -184,12 +195,15 @@ class ChatSessionViewSet(viewsets.ModelViewSet):
                 'bot_message': MessageSerializer(error_msg).data
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-    def _handle_intent(self, intent, analyzer, user_text, chat_session):
+    def _handle_intent(self, intent, analyzer, user_text, chat_session, language='vi'):
         """
         Route intent to Groq with COMPREHENSIVE analysis data.
         Sends ALL detailed breakdowns to ensure specific, data-driven responses.
         """
         try:
+            # Language already detected, skip re-detection
+            logger.info(f"[LANG] Using language: {language}")
+            
             # ════════════════════════════════════════════════════════════════
             # STEP 1: Calculate COMPREHENSIVE analysis from sales.csv
             # ════════════════════════════════════════════════════════════════
@@ -200,89 +214,61 @@ class ChatSessionViewSet(viewsets.ModelViewSet):
             worst_regions = analyzer.worst_region()
             breakdown = analyzer.breakdown_detailed()
             
-            # Format all detailed analysis data
-            analysis_text = f"""
-╔════════════════════════════════════════════════════════════════════════════════╗
-║ DỮ LIỆU BÁN HÀNG TỪ sales.csv - KHÔNG TÍNH TOÁN LẠI, CHỈ DÙNG SỐ NÀY
-╚════════════════════════════════════════════════════════════════════════════════╝
+            # Format analysis data in language-specific format
+            if language == 'vi':
+                analysis_text = f"""
+DOANH THU TỪ sales.csv:
+- Tháng này: {overview['current_revenue']:,.0f} đồng
+- Tháng trước: {overview['previous_revenue']:,.0f} đồng
+- Thay đổi: {overview['revenue_change_pct']:+.1f}%
+- Số lượng thay đổi: {overview['quantity_change_pct']:+.1f}%
+- Giá thay đổi: {overview['price_change_pct']:+.1f}%
 
-📊 KỲ SO SÁNH: {overview['current_month']} so với {overview['previous_month']}
+NGUYÊN NHÂN: {quantity_price['dominant'].upper()}
+- Số lượng: {quantity_price['qty_chg']:+.1f}%
+- Giá: {quantity_price['price_chg']:+.1f}%
 
-╔════════════════════════════════════════════════════════════════════════════════╗
-║ 1. TỔNG QUAN DOANH THU & SỐ LƯỢNG
-╚════════════════════════════════════════════════════════════════════════════════╝
-💰 DOANH THU:
-- Tháng này ({overview['current_month']}): {overview['current_revenue']:,.0f} đồng
-- Tháng trước ({overview['previous_month']}): {overview['previous_revenue']:,.0f} đồng
-- Thay đổi: {overview['revenue_change_pct']:+.1f}% (số tiền: {int(overview['current_revenue'] - overview['previous_revenue']):+,} đồng)
+TOP SẢN PHẨM GIẢM:
+"""
+                for i, prod in enumerate(worst_products[:3], 1):
+                    analysis_text += f"{i}. {prod['product']}: {prod['chg_pct']:+.1f}%\n"
+                
+                analysis_text += "\nTOP KÊNH GIẢM:\n"
+                for i, ch in enumerate(worst_channels[:3], 1):
+                    analysis_text += f"{i}. {ch['channel']}: {ch['chg_pct']:+.1f}%\n"
+                
+                analysis_text += "\nIMPACT (% tổng loss):\n"
+                for prod in breakdown['product_breakdown'][:3]:
+                    analysis_text += f"- {prod['product']}: {prod['impact_pct']:.1f}%\n"
+                for ch in breakdown['channel_breakdown'][:3]:
+                    analysis_text += f"- {ch['channel']}: {ch['impact_pct']:.1f}%\n"
+            else:  # English
+                analysis_text = f"""
+REVENUE FROM sales.csv:
+- This month: {overview['current_revenue']:,.0f}
+- Previous month: {overview['previous_revenue']:,.0f}
+- Change: {overview['revenue_change_pct']:+.1f}%
+- Quantity change: {overview['quantity_change_pct']:+.1f}%
+- Price change: {overview['price_change_pct']:+.1f}%
 
-📦 SỐ LƯỢNG BÁN:
-- Tháng này: {overview['current_quantity']:,} sản phẩm
-- Tháng trước: {overview['previous_quantity']:,} sản phẩm
-- Thay đổi: {overview['quantity_change_pct']:+.1f}%
+ROOT CAUSE: {quantity_price['dominant'].upper()}
+- Quantity: {quantity_price['qty_chg']:+.1f}%
+- Price: {quantity_price['price_chg']:+.1f}%
 
-💵 GIÁ BÌNH QUÂN/SP:
-- Tháng này: {overview['current_avg_price']:,.2f} đồng/sp
-- Tháng trước: {overview['previous_avg_price']:,.2f} đồng/sp
-- Thay đổi: {overview['price_change_pct']:+.1f}%
-
-╔════════════════════════════════════════════════════════════════════════════════╗
-║ 2. NGUYÊN NHÂN THAY ĐỔI DOANH THU
-╚════════════════════════════════════════════════════════════════════════════════╝
-🎯 YẾU TỐ CHIẾU DIỄM: {quantity_price['dominant'].upper()}
-- Nếu SỐ LƯỢNG giảm: {quantity_price['qty_chg']:+.1f}% (nguyên nhân chính)
-- Nếu GIÁ giảm: {quantity_price['price_chg']:+.1f}% (nguyên nhân chính)
-
-╔════════════════════════════════════════════════════════════════════════════════╗
-║ 3. SẢN PHẨM BỊ TỪ TỪ GIẢM (Từ xấu nhất đến tốt nhất)
-╚════════════════════════════════════════════════════════════════════════════════╝
+TOP DECLINING PRODUCTS:
 """
-            for i, prod in enumerate(worst_products[:5], 1):
-                analysis_text += f"{i}. {prod['product']}: {prod['chg_pct']:+.1f}% (từ {prod['prev_rev']} → {prod['cur_rev']})\n"
-            
-            analysis_text += f"""
-╔════════════════════════════════════════════════════════════════════════════════╗
-║ 4. KÊNH BÁN HƯ (Từ xấu nhất đến tốt nhất)
-╚════════════════════════════════════════════════════════════════════════════════╝
-"""
-            for i, ch in enumerate(worst_channels[:5], 1):
-                analysis_text += f"{i}. {ch['channel']}: {ch['chg_pct']:+.1f}% (từ {ch['prev_rev']} → {ch['cur_rev']})\n"
-            
-            analysis_text += f"""
-╔════════════════════════════════════════════════════════════════════════════════╗
-║ 5. KHU VỰC BỊ ẢNH HƯỞNG (Từ xấu nhất đến tốt nhất)
-╚════════════════════════════════════════════════════════════════════════════════╝
-"""
-            for i, reg in enumerate(worst_regions[:5], 1):
-                analysis_text += f"{i}. {reg['region']}: {reg['chg_pct']:+.1f}% (từ {reg['cur_rev']} → Doanh thu hiện tại)\n"
-            
-            analysis_text += f"""
-╔════════════════════════════════════════════════════════════════════════════════╗
-║ 6. PHÂN TÍCH IMPACT: CÁC YẾU TỐ GÓP PHẦN VÀO SỤT GIẢM DOANH THU
-╚════════════════════════════════════════════════════════════════════════════════╝
-
-🔴 SẢN PHẨM GIẢM (Tính % tổng loss):
-"""
-            for prod in breakdown['product_breakdown'][:5]:
-                analysis_text += f"- {prod['product']}: {prod['chg_pct']:+.1f}% change, góp {prod['impact_pct']:.1f}% vào sụt giảm\n"
-            
-            analysis_text += f"""
-🔴 KÊNH BÁN GIẢM (Tính % tổng loss):
-"""
-            for ch in breakdown['channel_breakdown'][:5]:
-                analysis_text += f"- {ch['channel']}: {ch['chg_pct']:+.1f}% change, góp {ch['impact_pct']:.1f}% vào sụt giảm\n"
-            
-            analysis_text += f"""
-🔴 KHU VỰC GIẢM (Tính % tổng loss):
-"""
-            for reg in breakdown['region_breakdown'][:5]:
-                analysis_text += f"- {reg['region']}: {reg['chg_pct']:+.1f}% change, góp {reg['impact_pct']:.1f}% vào sụt giảm\n"
-            
-            analysis_text += """
-╔════════════════════════════════════════════════════════════════════════════════╗
-║ [HẾT DỮ LIỆU] - KHÔNG CÓ DỮ LIỆU KHÁC, CHỈ DÙNG DỮ LIỆU TRÊN ĐỂ TRẢ LỜI
-╚════════════════════════════════════════════════════════════════════════════════╝
-"""
+                for i, prod in enumerate(worst_products[:3], 1):
+                    analysis_text += f"{i}. {prod['product']}: {prod['chg_pct']:+.1f}%\n"
+                
+                analysis_text += "\nTOP DECLINING CHANNELS:\n"
+                for i, ch in enumerate(worst_channels[:3], 1):
+                    analysis_text += f"{i}. {ch['channel']}: {ch['chg_pct']:+.1f}%\n"
+                
+                analysis_text += "\nIMPACT (% of total loss):\n"
+                for prod in breakdown['product_breakdown'][:3]:
+                    analysis_text += f"- {prod['product']}: {prod['impact_pct']:.1f}%\n"
+                for ch in breakdown['channel_breakdown'][:3]:
+                    analysis_text += f"- {ch['channel']}: {ch['impact_pct']:.1f}%\n"
             
             # ════════════════════════════════════════════════════════════════
             # STEP 2: Get chat history for context
@@ -302,149 +288,38 @@ class ChatSessionViewSet(viewsets.ModelViewSet):
                 chat_history_text = "(Đây là tin nhắn đầu tiên)"
             
             # ════════════════════════════════════════════════════════════════
-            # STEP 3: Build comprehensive prompt
+            # STEP 3: Build comprehensive prompt (language-aware)
             # ════════════════════════════════════════════════════════════════
-            full_prompt = f"""Ngữ cảnh hội thoại:
-{chat_history_text}
-
-Câu hỏi:
-{user_text}
-
-Dữ liệu phân tích:
+            if language == 'vi':
+                full_prompt = f"""Dữ liệu phân tích:
 {analysis_text}
 
-Yêu cầu:
-- Trả lời bằng tiếng Việt
-- Trả lời trực tiếp
-- Không chào lại
-- Không nói chung chung
-- Phải có số liệu
-- Phải giải thích rõ nguyên nhân
-- Hiểu câu hỏi ngắn theo ngữ cảnh
+Câu hỏi: {user_text}
 
-Yêu cầu bổ sung:
-- Trả lời đầy đủ, có chiều sâu
-- Không trả lời quá ngắn
-- Phải có giải thích + insight
-"""
-            
-            # Debug logging
-            logger.info(f"[GROQ] Intent detected: {intent}")
-            logger.info(f"[GROQ] User question: {user_text}")
+CẤU TRÚC TRẢ LỜI (BẮT BUỘC - phải có đúng 5 dòng này):
+NHẬN ĐỊNH: [Nguyên nhân chính, số %]
+YẾU TỐ QUAN TRỌNG: [Sản phẩm/kênh, số %]
+ẢNH HƯỞNG: [% tổng loss]
+HÀNH ĐỘNG: Thứ nhất: [Hành động]. Thứ hai: [Hành động].
+RỦI RO: Nếu không hành động: [Hậu quả]"""
+            else:  # English
+                full_prompt = f"""Analysis data:
+{analysis_text}
+
+Question: {user_text}
+
+RESPONSE STRUCTURE (MANDATORY - must have exactly these 5 lines):
+INSIGHT: [Main reason, percentage]
+CRITICAL FACTOR: [Product/Channel, percentage]
+IMPACT: [Percentage of total loss]
+ACTIONS: First: [Action]. Second: [Action].
+RISK: If no action: [Consequence]"""
             
             # ════════════════════════════════════════════════════════════════
-            # STEP 4: Call Groq with EXTREMELY strict system prompt
+            # STEP 4: Call Groq with language-aware system prompt
             # ════════════════════════════════════════════════════════════════
-            system_prompt = """You are Revenue AI, a senior Vietnamese business analyst.
-
-Your job is to explain sales and revenue changes in a natural, insightful, and human-like way.
-
-CORE RULES:
-- Answer directly, no unnecessary greeting
-- Do not use vague phrases like "có thể", "thường là"
-- Do not give generic theory
-- Only use provided analysis data
-- Always include numbers when available
-- If data is missing, say: "Không đủ dữ liệu để kết luận chính xác."
-- CRITICAL: Do NOT guess reasons like marketing, competition, staff, external factors
-- ONLY explain based on available data (quantity, price, product, channel)
-- Do NOT suggest possible causes beyond the data (no marketing, tồn kho, sales, trưng bày)
-- If deeper causes are unknown, clearly say: "Dữ liệu hiện tại chưa đủ để xác định nguyên nhân sâu hơn."
-
-🚨 NO GUESSING RULE (CỰC QUAN TRỌNG):
-- NEVER suggest causes like tồn kho, trưng bày, marketing, nhân viên
-- Only describe what is visible in the data
-- If deeper cause is unknown, say:
-  "Dữ liệu hiện tại chưa đủ để xác định nguyên nhân sâu hơn."
-- NEVER guess reasons like:
-  ❌ "có thể do marketing kém"
-  ❌ "có thể do nhân viên"
-  ❌ "có thể do tồn kho"
-  ❌ "có thể do cạnh tranh"
-  ❌ "có thể do nhu cầu khách"
-- Only explain based on ACTUAL DATA:
-  ✅ Quantity change %
-  ✅ Price change %
-  ✅ Product-specific data
-  ✅ Channel-specific data
-- If the real cause is NOT in data, say: "Dữ liệu hiện tại chưa đủ để xác định nguyên nhân sâu hơn."
-- NEVER assume causes beyond the provided metrics
-
-RECOMMENDATIONS (HÀNH ĐỘNG):
-- Recommendations must be high-level only, no specific actions like marketing, quảng cáo, trưng bày, nhân viên
-- NEVER mention specific actions like marketing, quảng cáo, trải nghiệm, nhân viên under any condition
-- Focus only on product or channel performance from data
-
-STYLE:
-- Natural Vietnamese
-- Calm, confident
-- Like a real business analyst
-- Not robotic, not textbook
-- Do not repeat the same point multiple times
-- Mention each key factor only once
-- Keep answers concise and sharp
-
-DEPTH REQUIREMENT (QUAN TRỌNG):
-- Do NOT be too short
-- Expand answers with deeper explanation
-- Always include 1–2 extra layers:
-  + explain WHY it happens
-  + explain business impact
-- Answers should feel complete, not minimal
-- PRIORITY: Depth > Brevity (longer detailed answer is better than short vague answer)
-
-DEPTH IS MANDATORY (QUAN TRỌNG CẤP ĐỘ CAO):
-- For "Vì sao?" questions: MUST explain 2-3 layers minimum
-  + What changed (the fact)
-  + Why it changed (root cause from data)
-  + What it means (impact on business)
-- Do NOT answer "Vì sao?" in 1-2 sentences
-- Add extra insight about products/channels/numbers involved
-- Expand with: "Điều này cho thấy..." or "Cụ thể là..." to add depth
-- Always include specific percentages and product/channel names
-
-FLEXIBLE 5-PART STRUCTURE (INTERNALLY - NOT ALWAYS LABELING):
-Use this 5-part framework INTERNALLY to organize thoughts, but express naturally like human conversation:
-
-1️⃣ CONCLUSION (Kết luận chính)
-   - Lead with direct answer to user's question
-   - Include specific numbers/percentages
-   - No need to label explicitly - integrate naturally into opening
-
-2️⃣ CAUSE (Nguyên nhân chính)
-   - Explain WHY based on data (quantity, price, product, channel)
-   - Use phrases like "Cụ thể là...", "Điều này là do..." 
-   - Do NOT label or use emoji headers
-
-3️⃣ INSIGHT (Insight quan trọng - the differentiator)
-   - Show deeper pattern recognition
-   - Use "Đáng chú ý...", "Điều này cho thấy..."
-   - Connect cause to business impact naturally
-
-4️⃣ ACTION (Nên làm gì - if relevant)
-   - For "What to do?" questions, suggest prioritized actions
-   - Format: "Thứ nhất..., thứ hai..." (no need to label)
-   - Link each action to its consequence
-
-5️⃣ CONSEQUENCE (Hậu quả - always at the end)
-   - State what happens if NOT acted upon
-   - Natural close: "Nếu không..., sẽ..."
-   - DO NOT use emoji labels
-
-Few-shot examples (SHOW ALL 5 PARTS):
-
-EXAMPLE 1 - Revenue decline
-User: "Doanh thu tháng này có giảm không?"
-Assistant: "🟢 KẾT LUẬN: Doanh thu tháng 3 giảm 81.2% từ 74.48 tỷ xuống 13.99 tỷ. 🔵 NGUYÊN NHÂN: Số lượng giảm 76% (gây 80% sụt), giá giảm 2% (gây 20% sụt). 🔵 INSIGHT: Laptop -87.5% & Offline -84.5% chiếm 70% sụt → vấn đề tập trung ở sản phẩm & kênh. 🎯 HÀNH ĐỘNG: Ưu tiên phục hồi Laptop. ⚠️ HẬU QUẢ: Nếu không, doanh thu tiếp tục giảm."
-
-EXAMPLE 2 - Root cause
-User: "Vì sao?"
-Assistant: "🟢 KẾT LUẬN: Sức bán yếu, không phải giá. 🔵 NGUYÊN NHÂN: Qty -76% vs Price -2% → vấn đề bán hàng. Laptop -87.5%, Offline -84.5%. 🔵 INSIGHT: Gợi ý tồn kho, trưng bày hoặc năng lực sales, không phải nhu cầu chung. 🎯 HÀNH ĐỘNG: Rà soát 2 điểm này. ⚠️ HẬU QUẢ: Nếu bỏ qua, doanh số tiếp tục sụt 10-20% tháng sau."
-
-EXAMPLE 3 - Action  
-User: "Nên làm gì?"
-Assistant: "🟢 KẾT LUẬN: Tập trung phục hồi Laptop & Offline. 🔵 NGUYÊN NHÂN: 2 yếu tố này chiếm 70% sụt. 🔵 INSIGHT: Không nên giảm giá mà kiểm tra tồn kho, display, năng lực bán. 🎯 HÀNH ĐỘNG: (1) Kiểm tồn Laptop - thiếu→nhập, thừa→cải display; (2) Rà soát Offline - staff, khuyến mãi, năng lực. ⚠️ HẬU QUẢ: Nếu không, doanh thu giảm 10-20% tháng sau, mất cơ hội tăng trưởng."\""""
-
+            system_prompt = build_system_prompt(language)
+            
             try:
                 from groq import Groq
                 import os
@@ -462,18 +337,25 @@ Assistant: "🟢 KẾT LUẬN: Tập trung phục hồi Laptop & Offline. 🔵 N
                     model="llama-3.1-8b-instant",
                     messages=[
                         {"role": "system", "content": system_prompt},
-                        # Few-shot examples to teach the model the expected style (NATURAL, NO EMOJI LABELS)
-                        {"role": "user", "content": "Doanh thu tháng này có giảm không?"},
-                        {"role": "assistant", "content": "Doanh thu tháng 3 giảm 81.2% từ 74.48 tỷ xuống 13.99 tỷ đồng. Mức sụt giảm này chủ yếu do số lượng bán giảm 76%, trong khi giá chỉ giảm 2%, nên nguyên nhân chính là lực bán yếu đi. Đáng chú ý, Laptop giảm 87.5% và Offline giảm 84.5% - hai yếu tố này chiếm 70% mức sụt, cho thấy vấn đề tập trung vào sản phẩm và kênh cụ thể. Nên ưu tiên phục hồi Laptop vì impact cao nhất. Nếu không hành động, doanh thu sẽ tiếp tục giảm."},
-                        {"role": "user", "content": "Vì sao?"},
-                        {"role": "assistant", "content": "Nguyên nhân chính là số lượng bán ra giảm mạnh, không phải do giá. Cụ thể, Laptop (-87.5%) và kênh Offline (-84.5%) là hai yếu tố đóng góp lớn nhất vào mức giảm tổng. Điều này cho thấy sự sụt giảm tập trung ở sản phẩm và kênh này. Dữ liệu hiện tại chưa đủ để xác định nguyên nhân sâu hơn."},
-                        {"role": "user", "content": "Nên làm gì?"},
-                        {"role": "assistant", "content": "Nên ưu tiên phục hồi Laptop và rà soát lại kênh Offline vì đây là hai điểm kéo doanh thu xuống mạnh nhất. Cần tập trung cải thiện hiệu quả bán ở hai khu vực này trước. Nếu không xử lý, doanh thu sẽ khó phục hồi trong ngắn hạn."},
+                        # Few-shot Vietnamese example - natural style
+                        {"role": "user", "content": "Tại sao doanh thu giảm?"},
+                        {"role": "assistant", "content": """Doanh thu tháng 3 giảm 81.2% từ 74.48 tỷ xuống 13.99 tỷ đồng. Nguyên nhân chính là số lượng bán giảm 76%, trong khi giá chỉ giảm 2%. Điều này cho thấy vấn đề là lực bán yếu đi chứ không phải giá.
+
+Sản phẩm gặp khó nhất là Laptop (-87.5%) và kênh bán Offline (-84.5%). Hai yếu tố này chiếm khoảng 70% tổng sụt giảm, nên nên ưu tiên phục hồi. Cụ thể, Laptop chiếm 28% tổng loss và Offline chiếm 26.2%.
+
+Cần thực hiện ngay: Thứ nhất, tập trung phục hồi Laptop vì đây là yếu tố có impact cao nhất. Thứ hai, rà soát lại chiến lược kênh Offline để tìm ra nguyên nhân sụt giảm."""},
+                        # Few-shot English example - natural style
+                        {"role": "user", "content": "Why is revenue decreasing?"},
+                        {"role": "assistant", "content": """Revenue dropped 81.2% from 74.48B to 13.99B. The main reason is that sales quantity fell 76% while price only decreased 2% - this shows the issue is low sales volume, not pricing.
+
+The biggest impact comes from Laptop (-87.5%) and Offline channel (-84.5%), which account for about 70% of the total loss. Laptop alone represents 28% of the loss and Offline channel 26.2%.
+
+My recommendation: First, focus on recovering Laptop sales since it has the highest impact. Second, review your Offline channel strategy to understand why it's declining so sharply. Without action, revenue will continue falling as you lose ground in your key products and channels."""},
                         # Real user question
                         {"role": "user", "content": full_prompt}
                     ],
-                    temperature=0.2,  # Low temperature for consistent, data-driven responses
-                    max_tokens=2048
+                    temperature=0.3,  # Slightly higher for variety while staying data-driven
+                    max_tokens=1024
                 )
                 
                 bot_response = groq_response.choices[0].message.content
@@ -483,7 +365,7 @@ Assistant: "🟢 KẾT LUẬN: Tập trung phục hồi Laptop & Offline. 🔵 N
             except (GroqRateLimitError, ValueError) as e:
                 logger.warning(f"[GROQ] Failed: {str(e)}, trying Gemini fallback...")
                 try:
-                    bot_response = ask_gemini(user_text, overview, [])
+                    bot_response = ask_gemini(user_text, overview, [], language=language)
                     logger.info(f"[GEMINI] Fallback succeeded")
                 except Exception as e2:
                     logger.exception(f"[ERROR] Both Groq and Gemini failed: {str(e2)}")
@@ -572,41 +454,17 @@ class PublicChatViewSet(viewsets.ViewSet):
     
     dispatch = csrf_exempt(dispatch)
     
-    def _handle_intent(self, intent, analyzer, user_text, chat_session):
+    def _handle_intent(self, intent, analyzer, user_text, chat_session, language='vi'):
         """
-        Route intent to Groq with COMPREHENSIVE analysis data.
-        Sends ALL detailed breakdowns to ensure specific, data-driven responses.
+        Route intent to Groq with analysis data.
+        Simpler version for PublicChatViewSet.
         """
         try:
-            # Calculate comprehensive analysis
+            # Language already detected, skip re-detection
+            logger.info(f"[LANG] Using language: {language}")
+            
+            # Get basic analysis for context
             overview = analyzer.get_sales_summary()
-            quantity_price = analyzer.quantity_or_price()
-            worst_products = analyzer.worst_product()
-            worst_channels = analyzer.worst_channel()
-            worst_regions = analyzer.worst_region()
-            breakdown = analyzer.breakdown_detailed()
-            
-            # Format optimized analysis data (COMPACT for API)
-            analysis_text = f"""[SỰ THAY ĐỔI DOANH THU]
-Kỳ so sánh: {overview['current_month']} vs {overview['previous_month']}
-Doanh thu: {overview['current_revenue']:,.0f} đ ({overview['revenue_change_pct']:+.1f}%) - Số lượng: {overview['current_quantity']:,} ({overview['quantity_change_pct']:+.1f}%) - Giá: {overview['current_avg_price']:,.0f} ({overview['price_change_pct']:+.1f}%)
-
-[NGUYÊN NHÂN]
-Yếu tố chính: {quantity_price['dominant']} ({quantity_price['qty_chg']:+.1f}% số lượng, {quantity_price['price_chg']:+.1f}% giá)
-
-[SẢN PHẨM GIẢM (Top 3)]
-"""
-            for prod in worst_products[:3]:
-                analysis_text += f"- {prod['product']}: {prod['chg_pct']:+.1f}% (đóng góp {breakdown['product_breakdown'][0]['impact_pct'] if breakdown['product_breakdown'] else 0:.1f}%)\n"
-            
-            analysis_text += f"""
-[KÊNH GIẢM (Top 3)]
-"""
-            for ch in worst_channels[:3]:
-                analysis_text += f"- {ch['channel']}: {ch['chg_pct']:+.1f}%\n"
-            
-            analysis_text += """
-[CHỈ DÙNG DỮ LIỆU TRÊN ĐỂ TRẢ LỜI - KHÔNG CÓ DỮ LIỆU KHÁC]"""
             
             # Get chat history
             chat_messages = Message.objects.filter(
@@ -621,162 +479,47 @@ Yếu tố chính: {quantity_price['dominant']} ({quantity_price['qty_chg']:+.1f
                 chat_history_text += f"{role}: {text}\n"
             
             if not chat_history_text.strip():
-                chat_history_text = "(Đây là tin nhắn đầu tiên)"
+                chat_history_text = "(First message)" if language == 'en' else "(Đây là tin nhắn đầu tiên)"
             
-            # Build comprehensive prompt
-            full_prompt = f"""Ngữ cảnh hội thoại:
+            # Build analysis summary for prompt
+            analysis_summary = f"""Current Revenue: {overview.get('current_revenue', 'N/A')}
+Change: {overview.get('revenue_change_pct', 'N/A')}%
+Current Month: {overview.get('current_month', 'N/A')}"""
+            
+            # Build prompt with language awareness
+            if language == 'en':
+                full_prompt = f"""Conversation context:
+{chat_history_text}
+
+Question:
+{user_text}
+
+Sales data:
+{analysis_summary}
+
+Requirements:
+- Answer directly in English
+- Use specific numbers
+- Be concise and clear
+"""
+            else:  # Vietnamese
+                full_prompt = f"""Ngữ cảnh hội thoại:
 {chat_history_text}
 
 Câu hỏi:
 {user_text}
 
-Dữ liệu phân tích:
-{analysis_text}
+Dữ liệu doanh thu:
+{analysis_summary}
 
 Yêu cầu:
 - Trả lời bằng tiếng Việt
-- Trả lời trực tiếp
-- Không chào lại
-- Không nói chung chung
-- Phải có số liệu
-- Phải giải thích rõ nguyên nhân
-- Hiểu câu hỏi ngắn theo ngữ cảnh
-
-Yêu cầu bổ sung:
-- Trả lời đầy đủ, có chiều sâu
-- Không trả lời quá ngắn
-- Phải có giải thích + insight
+- Dùng số cụ thể
+- Trả lời ngắn gọn và rõ ràng
 """
             
-            system_prompt = """You are Revenue AI, a senior Vietnamese business analyst.
-
-Your job is to explain sales and revenue changes in a natural, insightful, and human-like way.
-
-CORE RULES:
-- Answer directly, no unnecessary greeting
-- Do not use vague phrases like "có thể", "thường là"
-- Do not give generic theory
-- Only use provided analysis data
-- Always include numbers when available
-- If data is missing, say: "Không đủ dữ liệu để kết luận chính xác."
-- CRITICAL: Do NOT guess reasons like marketing, competition, staff, external factors
-- ONLY explain based on available data (quantity, price, product, channel)
-- Do NOT suggest possible causes beyond the data (no marketing, tồn kho, sales, trưng bày)
-- If deeper causes are unknown, clearly say: "Dữ liệu hiện tại chưa đủ để xác định nguyên nhân sâu hơn."
-
-🚨 NO GUESSING RULE (CỰC QUAN TRỌNG):
-- NEVER suggest causes like tồn kho, trưng bày, marketing, nhân viên
-- Only describe what is visible in the data
-- If deeper cause is unknown, say:
-  "Dữ liệu hiện tại chưa đủ để xác định nguyên nhân sâu hơn."
-- NEVER guess reasons like:
-  ❌ "có thể do marketing kém"
-  ❌ "có thể do nhân viên"
-  ❌ "có thể do tồn kho"
-  ❌ "có thể do cạnh tranh"
-  ❌ "có thể do nhu cầu khách"
-- Only explain based on ACTUAL DATA:
-  ✅ Quantity change %
-  ✅ Price change %
-  ✅ Product-specific data
-  ✅ Channel-specific data
-- If the real cause is NOT in data, say: "Dữ liệu hiện tại chưa đủ để xác định nguyên nhân sâu hơn."
-- NEVER assume causes beyond the provided metrics
-
-RECOMMENDATIONS (HÀNH ĐỘNG):
-- Recommendations must be high-level only, no specific actions like marketing, quảng cáo, trưng bày, nhân viên
-- NEVER mention specific actions like marketing, quảng cáo, trải nghiệm, nhân viên under any condition
-- Focus only on product or channel performance from data
-
-STYLE:
-- Natural Vietnamese
-- Calm, confident
-- Like a real business analyst
-- Not robotic, not textbook
-- Do not repeat the same idea
-- Keep answers concise (3–5 sentences)
-- Mention each key factor only once
-- Do not repeat the same point multiple times
-- Keep answers concise and sharp
-
-DEPTH REQUIREMENT (QUAN TRỌNG):
-- Do NOT be too short
-- Expand answers with deeper explanation
-- Always include 1–2 extra layers:
-  + explain WHY it happens
-  + explain business impact
-- Answers should feel complete, not minimal
-- PRIORITY: Depth > Brevity (longer detailed answer is better than short vague answer)
-
-DEPTH IS MANDATORY (QUAN TRỌNG CẤP ĐỘ CAO):
-- For "Vì sao?" questions: MUST explain 2-3 layers minimum
-  + What changed (the fact)
-  + Why it changed (root cause from data)
-  + What it means (impact on business)
-- Do NOT answer "Vì sao?" in 1-2 sentences
-- Add extra insight about products/channels/numbers involved
-- Expand with: "Điều này cho thấy..." or "Cụ thể là..." to add depth
-- Always include specific percentages and product/channel names
-
-MANDATORY 5-PART STRUCTURE (ALL RESPONSES MUST INCLUDE):
-Follow this exact 5-part framework for EVERY analytical response:
-
-🔥 1. KẾT LUẬN CHÍNH (Conclusion) - MANDATORY
-   👉 Trả lời thẳng câu hỏi của user (YES/NO + kết quả)
-   ✅ Examples:
-   - "Doanh thu tháng 3 giảm 81.2% so với tháng trước"
-   - "Laptop giảm 87.5%, là sản phẩm bị ảnh hưởng nặng nhất"
-   ❗ Rules:
-   - Luôn có CON SỐ (số % hoặc tiền)
-   - Không vòng vo, thẳng thắn
-   - Tối đa 1-2 câu
-
-🟢 2. NGUYÊN NHÂN CHÍNH (Cause) - MANDATORY
-   👉 Giải thích LÝ DO bằng DATA (không phỏng đoán)
-   ✅ Example: "Số lượng bán giảm 76% (đóng góp 80%), giá chỉ giảm 2% (đóng góp 20%)"
-   ❗ Rules:
-   - Chỉ dùng data có sẵn (quantity, price, product, channel)
-   - KHÔNG đoán về marketing, cạnh tranh, nhân viên
-   - Nếu chưa rõ, nói "Dữ liệu chưa đủ để kết luận"
-   - Include specific percentages từ data
-
-🔵 3. INSIGHT QUAN TRỌNG (Deep Insight) - MANDATORY
-   👉 Phần làm bạn "khác biệt" - cho thấy AI thực sự hiểu dữ liệu
-   ✅ Examples:
-   - "Laptop & Offline chiếm 70% mức sụt, không phải nhu cầu chung"
-   - "Vấn đề tập trung ở sản phẩm cụ thể, gợi ý tồn kho hoặc trưng bày"
-   ❗ Rules:
-   - Liên kết nguyên nhân với tác động
-   - So sánh các yếu tố
-   - Business-focused
-
-🎯 4. HÀNH ĐỘNG (Action) - MANDATORY (nếu relevant)
-   👉 Nếu có "Nên làm gì?" → MUST INCLUDE action & consequence
-   ✅ Example: "Phục hồi Laptop (87.5% giảm) → kiểm tra tồn kho & display"
-   ❗ Rules:
-   - Priority: cái nào impact cao → cái nào tiếp theo
-   - Format: "Thứ nhất... (vì...). Thứ hai..."
-   - Liên kết hành động với consequence
-
-⚠️ 5. HẬU QUẢ (Impact/Consequence) - MANDATORY
-   👉 RÕNG RÀO: sẽ xảy ra gì nếu không hành động
-   ✅ Example: "Nếu không, doanh thu sẽ tiếp tục giảm 10-20%, ảnh hưởng KPI"
-   ❗ Rules:
-   - Luôn kết thúc bằng hậu quả NEGATIF rõ ràng
-   - Tone: "gắt" nhưng không điều động
-- "có thể do..." (FORBIDDEN - this is guessing, not data-based analysis)
-- "thường là..." (FORBIDDEN - vague generalization)
-- "có thể là..." (FORBIDDEN - pure speculation)
-
-WRITING STYLE:
-- For analytical/explanation questions: EXPAND answers with depth
-- Do NOT keep responses minimal or brief
-- For "Vì sao?" or "Tại sao?": Must explain 2-3 layers (WHAT changed → WHY it changed → IMPACT)
-- Add 1-2 more sentences explaining deeper insight and business impact
-- Aim for 4-7 sentences for complex analysis questions
-- Length should match question complexity: simple question = brief, complex question = detailed
-- Clear, sharp, meaningful language (not fluff, but substantive explanation)"""
-
+            system_prompt = build_system_prompt(language)
+            
             try:
                 from groq import Groq
                 import os
@@ -809,7 +552,7 @@ WRITING STYLE:
                 
             except (GroqRateLimitError, ValueError) as e:
                 try:
-                    bot_response = ask_gemini(user_text, overview, [])
+                    bot_response = ask_gemini(user_text, overview, [], language=language)
                 except Exception as e2:
                     bot_response = 'Lỗi: Không thể kết nối với dịch vụ AI. Vui lòng thử lại sau.'
             except Exception as e:
@@ -836,6 +579,9 @@ WRITING STYLE:
 
             if not user_text:
                 return Response({'error': 'Empty message'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Auto-detect language from user's message
+            language = detect_language(user_text)
 
             # Get or create session — exact match by session_key
             # Title format: "<session_key> - Anonymous"
@@ -872,7 +618,7 @@ WRITING STYLE:
             if not SalesData.objects.exists():
                 # No sales data → pure Groq conversation (natural like real Gemini)
                 try:
-                    bot_html = ask_groq(user_text, {}, conversation_history)
+                    bot_html = ask_groq(user_text, {}, conversation_history, language=language)
                 except (GroqRateLimitError, ValueError):
                     # Fallback to Gemini
                     try:
@@ -908,20 +654,19 @@ WRITING STYLE:
                 if intent == 'greeting' and not conversation_history:
                     logger.info(f"[PUBLIC] Detected GREETING, returning quick greeting template")
                     print(f"[PUBLIC] → Using build_greeting()")
-                    bot_html = build_greeting()
-                elif intent == 'default' or (intent == 'greeting' and conversation_history):
-                    # Default intent = question không liên quan đến data → pure Groq conversation (general)
-                    # OR greeting with history = followup greeting → use natural response
+                    bot_html = build_greeting(language)
+                # Greeting với history hoặc non-data questions → pure Groq conversation
+                elif intent == 'greeting' or intent == 'default':
                     logger.info(f"[PUBLIC] Detected {intent}, using pure Groq general conversation")
                     print(f"[PUBLIC] → Using ask_groq_general() for natural conversation")
                     try:
-                        bot_html = ask_groq_general(user_text, conversation_history)
+                        bot_html = ask_groq_general(user_text, conversation_history, language=language)
                         logger.info(f"[PUBLIC] Groq general succeeded")
                     except (GroqRateLimitError, ValueError) as e:
                         logger.warning(f"[PUBLIC] Groq general failed ({type(e).__name__}), trying Gemini")
                         print(f"[PUBLIC] Groq error: {str(e)[:100]}")
                         try:
-                            bot_html = ask_gemini(user_text, {}, conversation_history)
+                            bot_html = ask_gemini(user_text, {}, conversation_history, language=language)
                             logger.info(f"[PUBLIC] Gemini succeeded")
                         except Exception as e2:
                             logger.error(f"[PUBLIC] Gemini also failed: {str(e2)[:100]}")
@@ -934,7 +679,7 @@ WRITING STYLE:
                     # All revenue/data questions → use _handle_intent with full analysis
                     logger.info(f"[PUBLIC] Detected {intent}, calling _handle_intent with full analysis")
                     print(f"[PUBLIC] → Using _handle_intent()")
-                    bot_html = self._handle_intent(intent, analyzer, user_text, chat_session)
+                    bot_html = self._handle_intent(intent, analyzer, user_text, chat_session, language)
 
             # Save bot response
             bot_msg = Message.objects.create(
@@ -1220,6 +965,9 @@ def stream_chat_view(request):
         body = json.loads(request.body)
         user_text = body.get('text', '').strip()[:MAX_MESSAGE_LEN]
         session_key = body.get('session_key', 'default')[:64]  # cap session key length
+        # Auto-detect language from user's message
+        detected_language = detect_language(user_text)
+        language = body.get('language', detected_language)  # Allow client override, but detect if not provided
     except Exception:
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
@@ -1309,19 +1057,19 @@ def stream_chat_view(request):
             if intent == 'greeting' and not conversation_history:
                 # First-time greeting → use template with emojis
                 print(f"[STREAM] → GREETING (first message), using build_greeting() template")
-                greeting_html = build_greeting()
+                greeting_html = build_greeting(language)
                 yield f"data: {json.dumps(greeting_html)}\n\n"
                 full_chunks.append(greeting_html)
             elif intent == 'default' or intent == 'greeting':
                 # General question or subsequent greeting - NO revenue data needed
                 print(f"[STREAM] → Using ask_groq_stream_general() for natural conversation")
-                for chunk in ask_groq_stream_general(user_text_snap, conversation_history):
+                for chunk in ask_groq_stream_general(user_text_snap, conversation_history, language=language):
                     full_chunks.append(chunk)
                     yield f"data: {json.dumps(chunk)}\n\n"
             else:
                 # Revenue/data question - use full analysis
                 print(f"[STREAM] → {intent} intent detected, calling ask_groq_stream with data")
-                for chunk in ask_groq_stream(user_text_snap, data_context, conversation_history):
+                for chunk in ask_groq_stream(user_text_snap, data_context, conversation_history, language=language):
                     full_chunks.append(chunk)
                     yield f"data: {json.dumps(chunk)}\n\n"
         except GeminiRateLimitError:
